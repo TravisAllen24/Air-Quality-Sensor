@@ -5,7 +5,7 @@ class PMSA003I:
 
     def __init__(self, i2c):
         self.i2c = i2c
-        self.address = 0x44
+        self.address = 0x12
 
     def read_pm(self):
         """ Reads the particulate matter values from the sensor. """
