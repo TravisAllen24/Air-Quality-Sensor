@@ -1,0 +1,1 @@
+2026-02-18 19:26:58 - CO2: 826 ppm | SHT T: 25.26 C RH: 37.80% | VOC: 29639 | PM: {'pm10 env': 0, 'pm100 env': 0, 'pm100 standard': 0, 'particles 03um': 89, 'pm25 standard': 0, 'particles 10um': 0, 'pm10 standard': 0, 'pm25 env': 0, 'particles 05um': 72, 'particles 25um': 0, 'particles 100um': 0, 'particles 50um': 0} | Score: 10.960
