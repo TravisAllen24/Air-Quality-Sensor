@@ -8,13 +8,13 @@ def format_value(value, precision=0):
 
 def calculate_air_score(co2, temp_c, rh, voc_raw, pm):
     """
-    Air Comfort/Health Score: 0 (excellent) → 100 (very poor)
+    Air Comfort/Health Score: 0 (excellent) → 100 (hazardous)
 
     Components:
-      - CO2 (ventilation / drowsiness)         : 0–30
-      - PM2.5 (health)                         : 0–30
-      - VOC (irritants/odors proxy, raw scaled): 0–15
-      - Temperature comfort (around ~22–24 C)   : 0–15
+      - CO2 (ventilation / drowsiness)         : 0–25
+      - PM2.5 (health)                         : 0–25
+      - VOC (irritants/odors proxy, raw scaled): 0–20
+      - Temperature comfort (around ~22–24 C)   : 0–20
       - Humidity comfort (30–60% ideal)        : 0–10
 
     Notes:
@@ -35,20 +35,20 @@ def calculate_air_score(co2, temp_c, rh, voc_raw, pm):
         rh = 45.0
 
     # --------------------
-    # CO2 score (0–30)
+    # CO2 score (0–25)
     # --------------------
     # 400–800 good, 800–1200 mild, 1200–2000 worse, >2000 poor
     if co2 <= 800:
         co2_score = 0.0
     elif co2 <= 1200:
-        co2_score = (co2 - 800) / 400 * 10.0
+        co2_score = (co2 - 800) / 400 * 8.0
     elif co2 <= 2000:
-        co2_score = 10.0 + (co2 - 1200) / 800 * 20.0
+        co2_score = 8.0 + (co2 - 1200) / 800 * 17.0
     else:
-        co2_score = 30.0
+        co2_score = 25.0
 
     # --------------------
-    # PM2.5 score (0–30)
+    # PM2.5 score (0–25)
     # --------------------
     # Rough health bands: <=5 great, 5–12 ok, 12–35 moderate, >35 poor
     # Extract pm25 from the pm dictionary
@@ -57,21 +57,21 @@ def calculate_air_score(co2, temp_c, rh, voc_raw, pm):
     if pm25 <= 5:
         pm_score = 0.0
     elif pm25 <= 12:
-        pm_score = (pm25 - 5) / 7 * 8.0
+        pm_score = (pm25 - 5) / 7 * 10.0
     elif pm25 <= 35:
-        pm_score = 8.0 + (pm25 - 12) / 23 * 17.0
+        pm_score = 10.0 + (pm25 - 12) / 23 * 15.0
     else:
-        pm_score = 30.0
+        pm_score = 25.0
 
     # --------------------
-    # VOC raw score (0–15)
+    # VOC raw score (0–20)
     # --------------------
     # Empirical: treat 10k as "clean baseline", 50k as "high"
     voc_norm = min(max((voc_raw - 10000) / 40000, 0.0), 1.0)
-    voc_score = voc_norm * 15.0
+    voc_score = voc_norm * 20.0
 
     # --------------------
-    # Temperature comfort (0–15)
+    # Temperature comfort (0–20)
     # --------------------
     # Ideal band: 21–24 C (very comfortable for many indoors)
     # Mild discomfort: 18–21 and 24–27
@@ -79,14 +79,14 @@ def calculate_air_score(co2, temp_c, rh, voc_raw, pm):
     if 21.0 <= temp_c <= 24.0:
         temp_score = 0.0
     elif 18.0 <= temp_c < 21.0:
-        temp_score = (21.0 - temp_c) / 3.0 * 7.0
+        temp_score = (21.0 - temp_c) / 3.0 * 8.0
     elif 24.0 < temp_c <= 27.0:
-        temp_score = (temp_c - 24.0) / 3.0 * 7.0
+        temp_score = (temp_c - 24.0) / 3.0 * 8.0
     else:
         # Outside 18–27 ramps up quickly to max
         # 15C or 30C and beyond => max penalty
         dist = min(max(abs(temp_c - 22.5) - 4.5, 0.0), 7.5)  # 0..7.5
-        temp_score = min(7.0 + (dist / 7.5) * 8.0, 15.0)
+        temp_score = min(8.0 + (dist / 7.5) * 12.0, 20.0)
 
     # --------------------
     # Humidity comfort (0–10)
