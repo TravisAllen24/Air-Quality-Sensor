@@ -1,9 +1,10 @@
-def format_value(value):
+def format_value(value, precision=0):
     """Format the value or return '----' if None."""
     if value is None:
         return "----"
+    if isinstance(value, float):
+        return str(round(value, precision))
     return str(value)
-
 
 def calculate_air_score(co2, temp_c, rh, voc_raw, pm):
     """

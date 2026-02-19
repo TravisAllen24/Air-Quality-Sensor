@@ -10,7 +10,7 @@ import adafruit_sgp40
 from adafruit_pm25.i2c import PM25_I2C
 
 from led import LED
-from utils import calculate_air_score, format_value
+from utils import format_value, calculate_air_score
 
 class AirQuality:
     """Collects data from sensors and prints to the serial port."""
@@ -45,8 +45,6 @@ class AirQuality:
         while True:
             # Reinitialize values as None each loop to handle sensor read failures gracefully
             co2_value = None
-            scd_temp = None
-            scd_rh = None
             temp_value = None
             humidity_value = None
             voc_raw = None
@@ -55,8 +53,6 @@ class AirQuality:
             # SCD4x CO2
             if self.co2_sensor.data_ready:
                 co2_value = self.co2_sensor.CO2
-                scd_temp = self.co2_sensor.temperature
-                scd_rh = self.co2_sensor.relative_humidity
 
             # SHT4x temp / RH
             temp_value = self.temp_humidity_sensor.temperature
@@ -76,8 +72,8 @@ class AirQuality:
             print(
                 "CO2: {} ppm | SHT  T: {} C RH: {}% | VOC: {} | PM: PM10: {}, PM2.5: {}, PM1.0: {}".format(
                     format_value(co2_value),
-                    format_value(temp_value),
-                    format_value(humidity_value),
+                    format_value(temp_value, 2),
+                    format_value(humidity_value, 2),
                     format_value(voc_raw),
                     format_value(pm10),
                     format_value(pm25),
