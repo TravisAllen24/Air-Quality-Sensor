@@ -7,6 +7,7 @@ import busio
 import adafruit_scd4x
 import adafruit_sht4x
 import adafruit_sgp40
+import adafruit_sgp41
 from adafruit_pm25.i2c import PM25_I2C
 
 from led import LED
@@ -16,9 +17,6 @@ class AirQuality:
     """Collects data from sensors and prints to the serial port."""
 
     def __init__(self):
-        # --- NeoPixel setup ---
-        self.led = LED(board.NEOPIXEL, brightness=0.2)
-
         # Initialize I2C (and wait until ready)
         self.i2c = busio.I2C(board.SCL, board.SDA)
         while not self.i2c.try_lock():
@@ -65,12 +63,12 @@ class AirQuality:
             pm = self.pm_sensor.read()
 
             # Extract relevant PM values
-            pm10 = pm.get("pm10 standard")
-            pm25 = pm.get("pm25 standard")
-            pm100 = pm.get("pm100 standard")
+            pm10 = pm.get("pm10 env")
+            pm25 = pm.get("pm25 env")
+            pm100 = pm.get("pm100 env")
 
             print(
-                "CO2: {} ppm | SHT  T: {} C RH: {}% | VOC: {} | PM: PM10: {}, PM2.5: {}, PM1.0: {}".format(
+                "CO2: {} ppm | SHT  T: {} C RH: {}% | VOC Index: {} | PM: PM10: {}, PM2.5: {}, PM1.0: {}".format(
                     format_value(co2_value),
                     format_value(temp_value, 2),
                     format_value(humidity_value, 2),
@@ -81,11 +79,18 @@ class AirQuality:
                 )
             )
 
+
             air_score = calculate_air_score(co2_value, temp_value, humidity_value, voc_raw, pm)
-            self.led.set_color_by_score(air_score)
+            led.set_color_by_score(air_score)
             time.sleep(5)
 
 
 if __name__ == "__main__":
-    AirQuality().run()
-
+    # --- NeoPixel setup ---
+    led = LED(board.NEOPIXEL, brightness=0.2)
+    try:
+        air_quality = AirQuality()
+        air_quality.run()
+    except Exception as e:
+        print(f'Error: {e}')
+        led.blink('red')

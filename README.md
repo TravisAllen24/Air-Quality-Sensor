@@ -46,7 +46,7 @@ A tabletop mechatronics project using an embedded microcontroller and sensors th
 - Use the serial monitor to view detailed sensor readings and air quality scores.
 
 ## Future Improvements
-- Add support for additional sensors.
+- Upgrade to an SGP41 sensor (VOC and NOx)
 - Implement an external battery
 - Implement data logging to an SD card.
 - Implement a Real Time Clock
