@@ -25,7 +25,7 @@ class AirQuality:
         """Initialize the AirQuality class with LED, button, and logger."""
         self.led = led
         self.button = button
-        self.sd_logger = sd_logger
+        self.sd_logger = logger
 
         # Initialize I2C (and wait until ready)
         self.i2c = busio.I2C(board.SCL, board.SDA)
@@ -50,7 +50,7 @@ class AirQuality:
         self.rtc = PCF8523(self.i2c)
 
         # Warmup tracking (SGP40 & SCD4x like a little time)
-        self.start_time = time.monotonic()
+        self.start_time = self.rtc.datetime
 
         self.logging = False
 
@@ -63,7 +63,13 @@ class AirQuality:
             # Check button frequently
             if self.button.pressed():
                 self.logging = not self.logging
-                print(f"Logging {'started' if self.logging else 'stopped'}.")
+                if self.logging:
+                    # Start new log file with RTC datetime
+                    self.sd_logger.start_new_log(self.rtc.datetime)
+                    print("Logging started.")
+                else:
+                    self.sd_logger.stop_log()
+                    print("Logging stopped.")
                 self.led.blink_once('blue')
 
             now = self.rtc.datetime
