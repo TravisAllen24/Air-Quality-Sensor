@@ -1,3 +1,4 @@
+import board
 from time import sleep
 
 import neopixel
@@ -17,30 +18,47 @@ COLOR_MAPPING = {
 class LED:
     """Handles LED operations, including color mapping and updates."""
 
-    def __init__(self, pin, brightness=0.2):
+    def __init__(self, pin = board.NEOPIXEL, brightness=0.2):
         self.pixels = neopixel.NeoPixel(pin, 1, brightness=brightness, auto_write=False)
         self.pixels.fill((0, 0, 0))
         self.pixels.show()
+        self._is_on = False
 
     def set_color(self, color):
         """Set the LED to a specific color."""
         self.pixels.fill(color)
         self.pixels.show()
 
-    def blink(self, color):
+    def on(self, color):
         led_color = COLOR_MAPPING.get(color, (0, 0, 0))
+        self.pixels.fill(led_color)
+        self.pixels.show()
+        self._is_on = True
 
+    def off(self):
+        self.pixels.fill((0, 0, 0))
+        self.pixels.show()
+        self._is_on = False
+
+    def toggle(self, color):
+        if self._is_on:
+            self.off()
+        else:
+            self.on(color)
+            self._is_on = True
+
+    def blink_once(self, color):
+        self.on(color)
+
+        sleep(.1)
+
+        self.off()
+
+    def error_blink(self, color = 'red'):
         while True:
-            self.pixels.fill(led_color)
-            self.pixels.show()
-
-            sleep(.1)
-
-            self.pixels.fill((0, 0, 0))
-            self.pixels.show()
+            self.blink_once(color)
 
             sleep(1)
-
 
     def set_color_by_score(self, air_score):
         """Map air_score to a color and set the LED.
@@ -57,5 +75,6 @@ class LED:
 
         # Set the LED color
         self.set_color((red, green, 0))
+
 
 

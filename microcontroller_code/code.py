@@ -11,6 +11,7 @@ import adafruit_sgp41
 from adafruit_pm25.i2c import PM25_I2C
 
 from led import LED
+from button import Button
 from utils import format_value, calculate_air_score
 
 class AirQuality:
@@ -87,10 +88,10 @@ class AirQuality:
 
 if __name__ == "__main__":
     # --- NeoPixel setup ---
-    led = LED(board.NEOPIXEL, brightness=0.2)
+    led = LED()
     try:
         air_quality = AirQuality()
         air_quality.run()
     except Exception as e:
         print(f'Error: {e}')
-        led.blink('red')
+        led.error_blink()
