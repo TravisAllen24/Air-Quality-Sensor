@@ -75,6 +75,3 @@ class LED:
 
         # Set the LED color
         self.set_color((red, green, 0))
-
-
-

@@ -111,4 +111,3 @@ def calculate_air_score(co2, temp_c, rh, voc_raw, pm):
     air_score = min(max(air_score, 0.0), 100.0)
 
     return round(air_score, 2)
-

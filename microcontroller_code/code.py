@@ -1,6 +1,7 @@
 """Main CircuitPython code that collects data from the I2C sensors and prints to serial."""
 
 import time
+import asyncio
 import board
 import busio
 
@@ -12,12 +13,13 @@ from adafruit_pm25.i2c import PM25_I2C
 
 from led import LED
 from button import Button
+from sd_logger import SDLogger
 from utils import format_value, calculate_air_score
 
 class AirQuality:
     """Collects data from sensors and prints to the serial port."""
 
-    def __init__(self):
+    def __init__(self, led, button, logger):
         # Initialize I2C (and wait until ready)
         self.i2c = busio.I2C(board.SCL, board.SDA)
         while not self.i2c.try_lock():
@@ -40,58 +42,85 @@ class AirQuality:
         # Warmup tracking (SGP40 & SCD4x like a little time)
         self.start_time = time.monotonic()
 
-    def run(self):
+        self.logging = False
+
+        led.blink_once('white')  # Indicate system is ready
+
+    async def run(self):
+        sensor_interval = 5  # seconds
+        last_sensor_time = time.monotonic()
         while True:
-            # Reinitialize values as None each loop to handle sensor read failures gracefully
-            co2_value = None
-            temp_value = None
-            humidity_value = None
-            voc_raw = None
-            pm = None
+            # Check button frequently
+            if button.pressed():
+                self.logging = not self.logging
+                print(f"Logging {'started' if self.logging else 'stopped'}.")
+                led.blink_once('blue')
 
-            # SCD4x CO2
-            if self.co2_sensor.data_ready:
-                co2_value = self.co2_sensor.CO2
+            now = time.monotonic()
+            if now - last_sensor_time >= sensor_interval:
+                # Reinitialize values as None each loop to handle sensor read failures gracefully
+                co2_value = None
+                temp_value = None
+                humidity_value = None
+                voc_raw = None
+                pm = None
 
-            # SHT4x temp / RH
-            temp_value = self.temp_humidity_sensor.temperature
-            humidity_value = self.temp_humidity_sensor.relative_humidity
+                # SCD4x CO2
+                if self.co2_sensor.data_ready:
+                    co2_value = self.co2_sensor.CO2
 
-            # SGP40 raw VOC reading
-            voc_raw = self.voc_sensor.measure_raw(temp_value, humidity_value)
+                # SHT4x temp / RH
+                temp_value = self.temp_humidity_sensor.temperature
+                humidity_value = self.temp_humidity_sensor.relative_humidity
 
-            # PM25 dict
-            pm = self.pm_sensor.read()
+                # SGP40 raw VOC reading
+                voc_raw = self.voc_sensor.measure_raw(temp_value, humidity_value)
 
-            # Extract relevant PM values
-            pm10 = pm.get("pm10 env")
-            pm25 = pm.get("pm25 env")
-            pm100 = pm.get("pm100 env")
+                # PM25 dict
+                pm = self.pm_sensor.read()
 
-            print(
-                "CO2: {} ppm | SHT  T: {} C RH: {}% | VOC Index: {} | PM: PM10: {}, PM2.5: {}, PM1.0: {}".format(
-                    format_value(co2_value),
-                    format_value(temp_value, 2),
-                    format_value(humidity_value, 2),
-                    format_value(voc_raw),
-                    format_value(pm10),
-                    format_value(pm25),
-                    format_value(pm100),
+                # Extract relevant PM values
+                pm10 = pm.get("pm10 env")
+                pm25 = pm.get("pm25 env")
+                pm100 = pm.get("pm100 env")
+
+                print(
+                    "CO2: {} ppm | SHT  T: {} C RH: {}% | VOC Index: {} | PM: PM10: {}, PM2.5: {}, PM1.0: {}".format(
+                        format_value(co2_value),
+                        format_value(temp_value, 2),
+                        format_value(humidity_value, 2),
+                        format_value(voc_raw),
+                        format_value(pm10),
+                        format_value(pm25),
+                        format_value(pm100),
+                    )
                 )
-            )
 
+                air_score = calculate_air_score(co2_value, temp_value, humidity_value, voc_raw, pm)
+                led.set_color_by_score(air_score)
 
-            air_score = calculate_air_score(co2_value, temp_value, humidity_value, voc_raw, pm)
-            led.set_color_by_score(air_score)
-            time.sleep(5)
+                # If logging, log data to SD card (placeholder)
+                if self.logging:
+                    sd_logger.log_data_to_sd(co2_value, temp_value, humidity_value, voc_raw, pm)
+                    # Blink LED once to indicate logging
+                    led.blink_once('blue')
+
+                last_sensor_time = now
+
+            await asyncio.sleep(0.01)  # Yield to event loop, check button frequently
 
 
 if __name__ == "__main__":
     # --- NeoPixel setup ---
     led = LED()
+    button = Button()
+    sd_logger = SDLogger()
+
     try:
-        air_quality = AirQuality()
-        air_quality.run()
+        air_quality = AirQuality(led, button, sd_logger)
+        asyncio.run(air_quality.run())
+
     except Exception as e:
         print(f'Error: {e}')
         led.error_blink()
+
