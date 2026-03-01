@@ -10,6 +10,7 @@ import adafruit_sht4x
 import adafruit_sgp40
 import adafruit_sgp41
 from adafruit_pm25.i2c import PM25_I2C
+from adafruit_pcf8523.pcf8523 import PCF8523
 
 from led import LED
 from button import Button
@@ -20,6 +21,12 @@ class AirQuality:
     """Collects data from sensors and prints to the serial port."""
 
     def __init__(self, led, button, logger):
+
+        """Initialize the AirQuality class with LED, button, and logger."""
+        self.led = led
+        self.button = button
+        self.sd_logger = sd_logger
+
         # Initialize I2C (and wait until ready)
         self.i2c = busio.I2C(board.SCL, board.SDA)
         while not self.i2c.try_lock():
@@ -39,25 +46,28 @@ class AirQuality:
         # PM: PMSA003I via adafruit_pm25 (I2C)
         self.pm_sensor = PM25_I2C(self.i2c, reset_pin=None)
 
+        # RTC: PCF8523 (RTC)
+        self.rtc = PCF8523(self.i2c)
+
         # Warmup tracking (SGP40 & SCD4x like a little time)
         self.start_time = time.monotonic()
 
         self.logging = False
 
-        led.blink_once('white')  # Indicate system is ready
+        self.led.blink_once('white')  # Indicate system is ready
 
     async def run(self):
         sensor_interval = 5  # seconds
-        last_sensor_time = time.monotonic()
+        last_sensor_time = self.rtc.datetime
         while True:
             # Check button frequently
-            if button.pressed():
+            if self.button.pressed():
                 self.logging = not self.logging
                 print(f"Logging {'started' if self.logging else 'stopped'}.")
-                led.blink_once('blue')
+                self.led.blink_once('blue')
 
-            now = time.monotonic()
-            if now - last_sensor_time >= sensor_interval:
+            now = self.rtc.datetime
+            if (now - last_sensor_time).total_seconds() >= sensor_interval:
                 # Reinitialize values as None each loop to handle sensor read failures gracefully
                 co2_value = None
                 temp_value = None
@@ -97,13 +107,13 @@ class AirQuality:
                 )
 
                 air_score = calculate_air_score(co2_value, temp_value, humidity_value, voc_raw, pm)
-                led.set_color_by_score(air_score)
+                self.led.set_color_by_score(air_score)
 
                 # If logging, log data to SD card (placeholder)
                 if self.logging:
-                    sd_logger.log_data_to_sd(co2_value, temp_value, humidity_value, voc_raw, pm)
+                    self.sd_logger.log_data_to_sd(now, co2_value, temp_value, humidity_value, voc_raw, pm)
                     # Blink LED once to indicate logging
-                    led.blink_once('blue')
+                    self.led.blink_once('blue')
 
                 last_sensor_time = now
 
@@ -114,9 +124,9 @@ if __name__ == "__main__":
     # --- NeoPixel setup ---
     led = LED()
     button = Button()
-    sd_logger = SDLogger()
 
     try:
+        sd_logger = SDLogger()
         air_quality = AirQuality(led, button, sd_logger)
         asyncio.run(air_quality.run())
 
