@@ -27,7 +27,6 @@ def main():
     # Debugging: Print the full path of the log file
     print(f"Log file path: {file_name}")
 
-
     # Open the serial port
     try:
         ser = serial.Serial('COM9', baudrate=115200, timeout=1)
