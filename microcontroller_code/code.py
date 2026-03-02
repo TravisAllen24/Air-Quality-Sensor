@@ -65,6 +65,7 @@ class AirQuality:
         self.sd_logger.unmount()
         self.led.blink_once('yellow')
         self._shutdown = True  # Set shutdown flag
+        time.sleep(1)  # Allow time for LED blink before turning off
 
     def read_all_sensors(self):
         """

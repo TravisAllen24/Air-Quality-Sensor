@@ -56,6 +56,7 @@ class AirQuality:
         self.led.blink_once('yellow')
         self.led.off()
         self._shutdown = True  # Set a flag to indicate shutdown
+        time.sleep(1)  # Allow time for LED blink before turning off
 
     def read_all_sensors(self):
         """Reads all connected air quality sensors, handling I2C and runtime errors gracefully."""
@@ -175,6 +176,7 @@ if __name__ == "__main__":
 
         except Exception as e:
             print(f'Error: {e}')
+            air_quality.safe_shutdown()
             led.error_blink()
 
     except Exception as e:
