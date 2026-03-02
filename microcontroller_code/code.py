@@ -15,9 +15,10 @@ from adafruit_pcf8523.pcf8523 import PCF8523
 from led import LED
 from button import Button
 from sd_logger import SDLogger
-from utils import format_value, calculate_air_score
+from utils import format_value, format_rtc_datetime, calculate_air_score
 
 class AirQuality:
+
     def __init__(self, led, button, logger):
 
         """Initialize the AirQuality class with LED, button, and logger."""
@@ -53,7 +54,7 @@ class AirQuality:
         self.logging = False
         self._shutdown = False  # Flag to indicate if a safe shutdown has been initiated
 
-        self.sd_logger.log_info(time.monotonic(), "System initialized and ready.")
+        self.sd_logger.log_info(self.rtc.datetime, "System initialized and ready.")
 
         self.led.blink_once('magenta')  # Indicate system is ready
 
@@ -61,7 +62,7 @@ class AirQuality:
         """Perform safe shutdown actions: log, LED, and optionally power down hardware."""
         msg = "Safe shutdown initiated."
         print(msg)
-        self.sd_logger.log_info(time.monotonic(), msg)
+        self.sd_logger.log_info(self.rtc.datetime, msg)
         self.sd_logger.unmount()
         self.led.blink_once('yellow')
         self._shutdown = True  # Set shutdown flag
@@ -92,7 +93,7 @@ class AirQuality:
             msg = f"Error reading CO2 sensor: {e}"
             print(msg)
             self.led.blink_once('red')
-            self.sd_logger.log_info(time.monotonic(), msg)
+            self.sd_logger.log_info(self.rtc.datetime, msg)
 
         try:
             # SHT4x temp / RH
@@ -102,16 +103,17 @@ class AirQuality:
             msg = f"Error reading temperature/humidity sensor: {e}"
             print(msg)
             self.led.blink_once('red')
-            self.sd_logger.log_info(time.monotonic(), msg)
+            self.sd_logger.log_info(self.rtc.datetime, msg)
 
         try:
             # SGP40 raw VOC reading
             voc_raw = self.voc_sensor.measure_raw(temp_value, humidity_value)
+            voc_index = self.voc_sensor.measure_index(temp_value, humidity_value)
         except (OSError, RuntimeError) as e:
             msg = f"Error reading VOC sensor: {e}"
             print(msg)
             self.led.blink_once('red')
-            self.sd_logger.log_info(time.monotonic(), msg)
+            self.sd_logger.log_info(self.rtc.datetime, msg)
 
         try:
             # PM25 dict
@@ -120,41 +122,51 @@ class AirQuality:
             msg = f"Error reading PM sensor: {e}"
             print(msg)
             self.led.blink_once('red')
-            self.sd_logger.log_info(time.monotonic(), msg)
+            self.sd_logger.log_info(self.rtc.datetime, msg)
 
-        return co2_value, temp_value, humidity_value, voc_raw, pm
+        return co2_value, temp_value, humidity_value, voc_raw, voc_index, pm
 
 
     async def run(self):
         sensor_interval = 5  # seconds
         last_sensor_time = self.rtc.datetime
 
+
         while True:
-            # Check for safe shutdown (button held)
-            if self.button.held(hold_time=2.0):
-                self.safe_shutdown()
+            button.update()  # Update button state
+            held_duration = self.button.held()
 
-            if self._shutdown:
-                break  # Exit the loop if a safe shutdown has been initiated
-
-            # Check button press for logging toggle
-            if self.button.pressed():
+            # Logging toggle only if not holding for shutdown
+            if (held_duration < 2.0) and (held_duration > 0.0):
                 self.logging = not self.logging
                 if self.logging:
                     # Start new log file with RTC datetime
                     self.sd_logger.start_new_log(self.rtc.datetime)
                     print("Logging started.")
-                    self.sd_logger.log_info(time.monotonic(), "Logging started.")
+                    self.sd_logger.log_info(self.rtc.datetime, "Logging started.")
                 else:
                     self.sd_logger.stop_log()
                     print("Logging stopped.")
-                    self.sd_logger.log_info(time.monotonic(), "Logging stopped.")
+                    self.sd_logger.log_info(self.rtc.datetime, "Logging stopped.")
                 self.led.blink_once('blue')
 
+            # Safe shutdown only if held
+            elif held_duration >= 2.0:
+                self.safe_shutdown()
+
+            if self._shutdown:
+                break  # Exit the loop if a safe shutdown has been initiated
+
+            # ...existing code...
+
+            # Always update now and timestamps for interval check
             now = self.rtc.datetime
-            if (now - last_sensor_time).total_seconds() >= sensor_interval:
+            now_ts = time.mktime(now)
+            last_sensor_ts = time.mktime(last_sensor_time)
+
+            if (now_ts - last_sensor_ts) >= sensor_interval:
                 # Read all sensors and handle errors gracefully
-                co2_value, temp_value, humidity_value, voc_raw, pm = self.read_all_sensors()
+                co2_value, temp_value, humidity_value, voc_raw, voc_index, pm = self.read_all_sensors()
 
                 # Extract relevant PM values
                 if pm:
@@ -167,12 +179,13 @@ class AirQuality:
                     pm100 = None
 
                 print(
-                    "Timestamp: {} CO2: {} ppm | SHT  T: {} C RH: {}% | VOC Index: {} | PM: PM10: {}, PM2.5: {}, PM1.0: {}".format(
-                        time.monotonic(),
+                    "RTC: {} | CO2: {} ppm | SHT  T: {} C RH: {}% | VOC Raw: {} | VOC Index: {} | PM: PM10: {}, PM2.5: {}, PM1.0: {}".format(
+                        format_rtc_datetime(now),
                         format_value(co2_value),
                         format_value(temp_value, 2),
                         format_value(humidity_value, 2),
                         format_value(voc_raw),
+                        format_value(voc_index),
                         format_value(pm10),
                         format_value(pm25),
                         format_value(pm100),
@@ -181,11 +194,11 @@ class AirQuality:
 
                 # If logging, log data to SD card
                 if self.logging:
-                    self.sd_logger.log_data_to_sd(time.monotonic(), co2_value, temp_value, humidity_value, voc_raw, pm)
+                    self.sd_logger.log_data_to_sd(format_rtc_datetime(now), co2_value, temp_value, humidity_value, voc_raw, pm)
                     self.led.blink_once('blue')
 
                 else:
-                    air_score = calculate_air_score(co2_value, temp_value, humidity_value, voc_raw, pm)
+                    air_score = calculate_air_score(co2_value, temp_value, humidity_value, voc_index, pm)
                     self.led.set_color_by_score(air_score)
 
                 last_sensor_time = now
@@ -207,18 +220,15 @@ if __name__ == "__main__":
 
         except KeyboardInterrupt:
             print("Program interrupted by user.")
-            sd_logger.log_info(time.monotonic(), "Program interrupted by user.")
+            sd_logger.log_info(air_quality.rtc.datetime, "Program interrupted by user.")
             air_quality.safe_shutdown()
 
         except Exception as e:
             print(f'Error: {e}')
-            sd_logger.log_info(time.monotonic(), f"Error: {e}")
+            sd_logger.log_info(air_quality.rtc.datetime, f"Error: {e}")
             air_quality.safe_shutdown()
             led.error_blink()
 
     except Exception as e:
         print(f"Initialization error: {e}")
         led.error_blink()
-
-
-

@@ -6,20 +6,27 @@ def format_value(value, precision=0):
         return str(round(value, precision))
     return str(value)
 
-def calculate_air_score(co2, temp_c, rh, voc_raw, pm):
+def format_rtc_datetime(dt):
+    """Format struct_time from RTC as YYYY-MM-DD HH:MM:SS string."""
+    return "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(
+        dt.tm_year, dt.tm_mon, dt.tm_mday, dt.tm_hour, dt.tm_min, dt.tm_sec
+    )
+
+
+def calculate_air_score(co2, temp_c, rh, voc_index, pm):
     """
     Air Comfort/Health Score: 0 (excellent) → 100 (hazardous)
 
     Components:
-      - CO2 (ventilation / drowsiness)         : 0–25
-      - PM2.5 (health)                         : 0–25
-      - VOC (irritants/odors proxy, raw scaled): 0–20
-      - Temperature comfort (around ~22–24 C)   : 0–20
-      - Humidity comfort (30–60% ideal)        : 0–10
+        - CO2 (ventilation / drowsiness)         : 0–25
+        - PM2.5 (health)                         : 0–25
+        - VOC index (SGP40 algorithm output)     : 0–20
+        - Temperature comfort (around ~22–24 C)  : 0–20
+        - Humidity comfort (30–60% ideal)        : 0–10
 
     Notes:
-      - VOC is still a heuristic unless you compute a VOC index.
-      - Temp/RH are comfort-focused, not medical.
+        - VOC index is preferred over raw value for health/comfort scoring.
+        - Temp/RH are comfort-focused, not medical.
     """
 
     # Reasonable defaults if a sensor isn't ready
@@ -27,8 +34,8 @@ def calculate_air_score(co2, temp_c, rh, voc_raw, pm):
         co2 = 400
     if pm is None:
         pm25 = 0
-    if voc_raw is None:
-        voc_raw = 0
+    if voc_index is None:
+        voc_index = 0
     if temp_c is None:
         temp_c = 23.0
     if rh is None:
@@ -64,10 +71,10 @@ def calculate_air_score(co2, temp_c, rh, voc_raw, pm):
         pm_score = 25.0
 
     # --------------------
-    # VOC raw score (0–20)
+    # VOC index score (0–20)
     # --------------------
-    # Empirical: treat 10k as "clean baseline", 50k as "high"
-    voc_norm = min(max((voc_raw - 10000) / 40000, 0.0), 1.0)
+    # VOC index: 0 (clean) to 500+ (very polluted), scale to 0–20 for score
+    voc_norm = min(max(voc_index / 500.0, 0.0), 1.0)
     voc_score = voc_norm * 20.0
 
     # --------------------
