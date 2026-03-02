@@ -1,7 +1,7 @@
-import board
 from time import sleep
 
 import neopixel
+import board
 
 # Define a color mapping for common color names
 COLOR_MAPPING = {
@@ -47,16 +47,16 @@ class LED:
             self.on(color)
             self._is_on = True
 
-    def blink_once(self, color):
+    def blink_once(self, color = 'red', duration = 0.25):
         self.on(color)
 
-        sleep(.1)
+        sleep(duration)
 
         self.off()
 
-    def error_blink(self, color = 'red'):
+    def error_blink(self, color = 'red', duration = 0.25):
         while True:
-            self.blink_once(color)
+            self.blink_once(color, duration)
 
             sleep(1)
 

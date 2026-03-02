@@ -6,11 +6,8 @@ import busio
 import storage
 import adafruit_sdcard
 import digitalio
-import os
-
 
 class SDLogger:
-    """Handles logging operations, including writing data to an SD card."""
     def __init__(self, cs_pin=board.D10, spi=None, mount_path="/sd"):
         """Mount SD card and prepare for logging."""
         # Set up SPI and SD card
@@ -24,6 +21,16 @@ class SDLogger:
         storage.mount(vfs, self.mount_path)
         self.file_path = None
         self.active = False
+
+    def log_info(self, timestamp, message):
+        """Log an info or error message to a separate log file on the SD card."""
+        log_file = f"{self.mount_path}/info.log"
+        try:
+            with open(log_file, "a") as f:
+                f.write(f"{timestamp}: {message}\n")
+        except Exception as e:
+            # If logging fails, print to console as fallback
+            print(f"SDLogger log_info error: {e}")
 
     def start_new_log(self, dt):
         """Start a new log file with datetime in filename."""
