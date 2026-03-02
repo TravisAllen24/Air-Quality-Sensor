@@ -51,10 +51,20 @@ class AirQuality:
         self.start_time = self.rtc.datetime
 
         self.logging = False
+        self._shutdown = False  # Flag to indicate if a safe shutdown has been initiated
 
         self.sd_logger.log_info(time.monotonic(), "System initialized and ready.")
 
         self.led.blink_once('magenta')  # Indicate system is ready
+
+    def safe_shutdown(self):
+        """Perform safe shutdown actions: log, LED, and optionally power down hardware."""
+        msg = "Safe shutdown initiated."
+        print(msg)
+        self.sd_logger.log_info(time.monotonic(), msg)
+        self.sd_logger.unmount()
+        self.led.blink_once('yellow')
+        self._shutdown = True  # Set shutdown flag
 
     def read_all_sensors(self):
         """
@@ -113,11 +123,20 @@ class AirQuality:
 
         return co2_value, temp_value, humidity_value, voc_raw, pm
 
+
     async def run(self):
         sensor_interval = 5  # seconds
         last_sensor_time = self.rtc.datetime
+
         while True:
-            # Check button frequently
+            # Check for safe shutdown (button held)
+            if self.button.held(hold_time=2.0):
+                self.safe_shutdown()
+
+            if self._shutdown:
+                break  # Exit the loop if a safe shutdown has been initiated
+
+            # Check button press for logging toggle
             if self.button.pressed():
                 self.logging = not self.logging
                 if self.logging:
@@ -159,14 +178,14 @@ class AirQuality:
                     )
                 )
 
-                air_score = calculate_air_score(co2_value, temp_value, humidity_value, voc_raw, pm)
-                self.led.set_color_by_score(air_score)
-
                 # If logging, log data to SD card
                 if self.logging:
                     self.sd_logger.log_data_to_sd(time.monotonic(), co2_value, temp_value, humidity_value, voc_raw, pm)
-                    # Blink LED once to indicate logging
                     self.led.blink_once('blue')
+
+                else:
+                    air_score = calculate_air_score(co2_value, temp_value, humidity_value, voc_raw, pm)
+                    self.led.set_color_by_score(air_score)
 
                 last_sensor_time = now
 
@@ -177,24 +196,27 @@ if __name__ == "__main__":
     # --- Init objects ---
     led = LED()
     button = Button()
-    sd_logger = None
 
     try:
         sd_logger = SDLogger()
         air_quality = AirQuality(led, button, sd_logger)
-        asyncio.run(air_quality.run())
 
-    except KeyboardInterrupt:
-        print("Program interrupted by user.")
-        if sd_logger:
+        try:
+            asyncio.run(air_quality.run())
+
+        except KeyboardInterrupt:
+            print("Program interrupted by user.")
             sd_logger.log_info(time.monotonic(), "Program interrupted by user.")
-        led.blink_once('yellow')  # Indicate graceful shutdown
-        led.off()
+            air_quality.safe_shutdown()
+
+        except Exception as e:
+            print(f'Error: {e}')
+            sd_logger.log_info(time.monotonic(), f"Error: {e}")
+            air_quality.safe_shutdown()
+            led.error_blink()
 
     except Exception as e:
-        print(f'Error: {e}')
-        if sd_logger:
-            sd_logger.log_info(time.monotonic(), f"Error: {e}")
+        print(f"Initialization error: {e}")
         led.error_blink()
 
 

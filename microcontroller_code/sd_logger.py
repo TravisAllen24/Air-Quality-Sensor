@@ -53,3 +53,7 @@ class SDLogger:
         pm100 = pm.get("pm100 env") if pm else None
         with open(self.file_path, "a") as f:
             f.write(f"{time},{co2_value},{temp_value},{humidity_value},{voc_raw},{pm10},{pm25},{pm100}\n")
+
+    def unmount(self):
+        """Unmount the SD card safely."""
+        storage.umount(self.mount_path)

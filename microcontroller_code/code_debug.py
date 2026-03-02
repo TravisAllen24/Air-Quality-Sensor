@@ -47,6 +47,16 @@ class AirQuality:
         self.logging = False
         self.led.blink_once(color='magenta')  # Indicate system is ready
 
+        self._shutdown = False  # Flag to indicate if a safe shutdown has been initiated
+
+    def safe_shutdown(self):
+        """Perform safe shutdown actions: log, LED, and optionally power down hardware."""
+        msg = "Safe shutdown initiated."
+        print(msg)
+        self.led.blink_once('yellow')
+        self.led.off()
+        self._shutdown = True  # Set a flag to indicate shutdown
+
     def read_all_sensors(self):
         """Reads all connected air quality sensors, handling I2C and runtime errors gracefully."""
         # Reinitialize values as None each loop to handle sensor read failures gracefully
@@ -92,6 +102,13 @@ class AirQuality:
         sensor_interval = 5  # seconds
         last_sensor_time = time.time()
         while True:
+            # Check for safe shutdown (button held)
+            if self.button.held(hold_time=2.0):
+                self.safe_shutdown()
+
+            if self._shutdown:
+                break  # Exit the loop if a safe shutdown has been initiated
+
             # Check button frequently
             if self.button.pressed():
                 self.logging = not self.logging
@@ -128,27 +145,41 @@ class AirQuality:
                     )
                 )
 
-                air_score = calculate_air_score(co2_value, temp_value, humidity_value, voc_raw, pm)
-                self.led.set_color_by_score(air_score)
-
                 # If logging, print data to console instead of logging to SD card
                 if self.logging:
                     print("LOGGING PLACEHOLDER")
                     self.led.blink_once('blue')
+
+                else:
+                    air_score = calculate_air_score(co2_value, temp_value, humidity_value, voc_raw, pm)
+                    self.led.set_color_by_score(air_score)
 
                 last_sensor_time = now
 
             await asyncio.sleep(0.01)  # Yield to event loop, check button frequently
 
 if __name__ == "__main__":
-    # --- NeoPixel setup ---
+    # --- Init objects ---
     led = LED()
     button = Button()
 
     try:
         air_quality = AirQuality(led, button)
-        asyncio.run(air_quality.run())
+
+        try:
+            asyncio.run(air_quality.run())
+
+        except KeyboardInterrupt:
+            print("Program interrupted by user.")
+            air_quality.safe_shutdown()
+
+        except Exception as e:
+            print(f'Error: {e}')
+            led.error_blink()
 
     except Exception as e:
-        print(f'Error: {e}')
+        print(f"Initialization error: {e}")
         led.error_blink()
+
+
+

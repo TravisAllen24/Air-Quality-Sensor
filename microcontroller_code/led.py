@@ -28,6 +28,7 @@ class LED:
         """Set the LED to a specific color."""
         self.pixels.fill(color)
         self.pixels.show()
+        self._is_on = True
 
     def on(self, color):
         led_color = COLOR_MAPPING.get(color, (0, 0, 0))
