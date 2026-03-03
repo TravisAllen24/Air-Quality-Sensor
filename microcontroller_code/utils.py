@@ -13,108 +13,127 @@ def format_rtc_datetime(dt):
     )
 
 
-def calculate_air_score(co2, temp_c, rh, voc_index, pm):
-    """
-    Air Comfort/Health Score: 0 (excellent) → 100 (hazardous)
 
-    Components:
-        - CO2 (ventilation / drowsiness)         : 0–25
-        - PM2.5 (health)                         : 0–25
-        - VOC index (SGP40 algorithm output)     : 0–20
-        - Temperature comfort (around ~22–24 C)  : 0–20
-        - Humidity comfort (30–60% ideal)        : 0–10
 
-    Notes:
-        - VOC index is preferred over raw value for health/comfort scoring.
-        - Temp/RH are comfort-focused, not medical.
-    """
-
-    # Reasonable defaults if a sensor isn't ready
+# Individual scoring functions for each variable
+def co2_score(co2):
+    """CO2 hazard score: 0 (good) to 100 (hazardous)"""
     if co2 is None:
         co2 = 400
-    if pm is None:
-        pm25 = 0
+    # EPA/ASHRAE: >2000 ppm is hazardous
+    if co2 <= 800:
+        return 0.0
+    elif co2 <= 1200:
+        return (co2 - 800) / 400 * 20.0
+    elif co2 <= 2000:
+        return 20.0 + (co2 - 1200) / 800 * 40.0
+    elif co2 <= 5000:
+        return 60.0 + (co2 - 2000) / 3000 * 40.0
+    else:
+        return 100.0
+
+def pm25_score(pm):
+    """PM2.5 hazard score: 0 (good) to 100 (hazardous)"""
+    pm25 = 0
+    if pm and ("pm25 standard" in pm):
+        pm25 = pm["pm25 standard"]
+    elif pm and ("pm25 env" in pm):
+        pm25 = pm["pm25 env"]
+    # EPA AQI: >250 is hazardous
+    if pm25 <= 12:
+        return 0.0
+    elif pm25 <= 35:
+        return (pm25 - 12) / 23 * 30.0
+    elif pm25 <= 55:
+        return 30.0 + (pm25 - 35) / 20 * 20.0
+    elif pm25 <= 150:
+        return 50.0 + (pm25 - 55) / 95 * 30.0
+    elif pm25 <= 250:
+        return 80.0 + (pm25 - 150) / 100 * 15.0
+    else:
+        return 95.0 + min((pm25 - 250) / 250 * 5.0, 5.0)
+
+def voc_score(voc_index):
+    """VOC index hazard score: 0 (good) to 100 (hazardous)"""
     if voc_index is None:
         voc_index = 0
+    # SGP40: 0-100 good, 100-200 moderate, 200-400 bad, >400 hazardous
+    if voc_index <= 100:
+        return 0.0
+    elif voc_index <= 200:
+        return (voc_index - 100) / 100 * 30.0
+    elif voc_index <= 400:
+        return 30.0 + (voc_index - 200) / 200 * 40.0
+    elif voc_index <= 500:
+        return 70.0 + (voc_index - 400) / 100 * 20.0
+    else:
+        return 90.0 + min((voc_index - 500) / 500 * 10.0, 10.0)
+
+def temp_score(temp_c):
+    """Temperature comfort penalty: 0 (ideal) to 100 (extreme)"""
     if temp_c is None:
         temp_c = 23.0
+    # 21-24C ideal, 18-27 mild, <15 or >30 dangerous, <5 or >40 life-threatening
+    if 21.0 <= temp_c <= 24.0:
+        return 0.0
+    elif 18.0 <= temp_c < 21.0:
+        return (21.0 - temp_c) / 3.0 * 20.0
+    elif 24.0 < temp_c <= 27.0:
+        return (temp_c - 24.0) / 3.0 * 20.0
+    elif 15.0 <= temp_c < 18.0:
+        return 20.0 + (18.0 - temp_c) / 3.0 * 30.0
+    elif 27.0 < temp_c <= 30.0:
+        return 20.0 + (temp_c - 27.0) / 3.0 * 30.0
+    elif 5.0 <= temp_c < 15.0:
+        return 50.0 + (15.0 - temp_c) / 10.0 * 30.0  # up to 80
+    elif 30.0 < temp_c <= 40.0:
+        return 50.0 + (temp_c - 30.0) / 10.0 * 30.0  # up to 80
+    elif temp_c < 5.0:
+        return 80.0 + min((5.0 - temp_c) / 10.0 * 20.0, 20.0)  # up to 100
+    else:  # temp_c > 40.0
+        return 80.0 + min((temp_c - 40.0) / 10.0 * 20.0, 20.0)  # up to 100
+
+def rh_score(rh):
+    """Humidity comfort penalty: 0 (ideal) to 100 (extreme)"""
     if rh is None:
         rh = 45.0
-
-    # --------------------
-    # CO2 score (0–25)
-    # --------------------
-    # 400–800 good, 800–1200 mild, 1200–2000 worse, >2000 poor
-    if co2 <= 800:
-        co2_score = 0.0
-    elif co2 <= 1200:
-        co2_score = (co2 - 800) / 400 * 8.0
-    elif co2 <= 2000:
-        co2_score = 8.0 + (co2 - 1200) / 800 * 17.0
-    else:
-        co2_score = 25.0
-
-    # --------------------
-    # PM2.5 score (0–25)
-    # --------------------
-    # Rough health bands: <=5 great, 5–12 ok, 12–35 moderate, >35 poor
-    # Extract pm25 from the pm dictionary
-    pm25 = pm.get("pm25 standard", 0) if pm else 0
-
-    if pm25 <= 5:
-        pm_score = 0.0
-    elif pm25 <= 12:
-        pm_score = (pm25 - 5) / 7 * 10.0
-    elif pm25 <= 35:
-        pm_score = 10.0 + (pm25 - 12) / 23 * 15.0
-    else:
-        pm_score = 25.0
-
-    # --------------------
-    # VOC index score (0–20)
-    # --------------------
-    # VOC index: 0 (clean) to 500+ (very polluted), scale to 0–20 for score
-    voc_norm = min(max(voc_index / 500.0, 0.0), 1.0)
-    voc_score = voc_norm * 20.0
-
-    # --------------------
-    # Temperature comfort (0–20)
-    # --------------------
-    # Ideal band: 21–24 C (very comfortable for many indoors)
-    # Mild discomfort: 18–21 and 24–27
-    # Strong discomfort outside that
-    if 21.0 <= temp_c <= 24.0:
-        temp_score = 0.0
-    elif 18.0 <= temp_c < 21.0:
-        temp_score = (21.0 - temp_c) / 3.0 * 8.0
-    elif 24.0 < temp_c <= 27.0:
-        temp_score = (temp_c - 24.0) / 3.0 * 8.0
-    else:
-        # Outside 18–27 ramps up quickly to max
-        # 15C or 30C and beyond => max penalty
-        dist = min(max(abs(temp_c - 22.5) - 4.5, 0.0), 7.5)  # 0..7.5
-        temp_score = min(8.0 + (dist / 7.5) * 12.0, 20.0)
-
-    # --------------------
-    # Humidity comfort (0–10)
-    # --------------------
-    # Ideal: 30–60%
-    # Mild: 20–30 or 60–70
-    # Strong: <20 or >70
+    # 30-60% ideal, 20-30/60-70 mild, <20/>70 strong, <10/>90 dangerous, <2/>98 life-threatening
     if 30.0 <= rh <= 60.0:
-        rh_score = 0.0
+        return 0.0
     elif 20.0 <= rh < 30.0:
-        rh_score = (30.0 - rh) / 10.0 * 4.0
+        return (30.0 - rh) / 10.0 * 20.0
     elif 60.0 < rh <= 70.0:
-        rh_score = (rh - 60.0) / 10.0 * 4.0
-    else:
-        # Outside 20–70 ramps to max
-        if rh < 20.0:
-            rh_score = min(4.0 + (20.0 - rh) / 20.0 * 6.0, 10.0)  # 0% -> 10
-        else:  # rh > 70
-            rh_score = min(4.0 + (rh - 70.0) / 30.0 * 6.0, 10.0)  # 100% -> 10
+        return (rh - 60.0) / 10.0 * 20.0
+    elif 10.0 <= rh < 20.0:
+        return 20.0 + (20.0 - rh) / 10.0 * 30.0  # up to 50
+    elif 70.0 < rh <= 90.0:
+        return 20.0 + (rh - 70.0) / 20.0 * 30.0  # up to 50
+    elif 2.0 <= rh < 10.0:
+        return 50.0 + (10.0 - rh) / 8.0 * 30.0  # up to 80
+    elif 90.0 < rh <= 98.0:
+        return 50.0 + (rh - 90.0) / 8.0 * 30.0  # up to 80
+    elif rh < 2.0:
+        return 80.0 + min((2.0 - rh) / 2.0 * 20.0, 20.0)  # up to 100
+    else:  # rh > 98.0
+        return 80.0 + min((rh - 98.0) / 2.0 * 20.0, 20.0)  # up to 100
 
-    air_score = co2_score + pm_score + voc_score + temp_score + rh_score
+def calculate_air_score(co2, temp_c, rh, voc_index, pm):
+    """
+    Air Quality/Health Score: 0 (excellent) → 100 (hazardous)
+    - If any hazard is high, the score is high (worst dominates)
+    - Comfort factors (temp, rh) are included but do not mask hazards
+    """
+    # Individual hazard scores
+    s_co2 = co2_score(co2)
+    s_pm25 = pm25_score(pm)
+    s_voc = voc_score(voc_index)
+    s_temp = temp_score(temp_c)
+    s_rh = rh_score(rh)
+
+    scores = [s_co2, s_pm25, s_voc, s_temp, s_rh]
+    max_score = max(scores)
+    mean_score = sum(scores) / len(scores)
+    alpha = 0.8  # weight for max vs mean
+    air_score = alpha * max_score + (1 - alpha) * mean_score
     air_score = min(max(air_score, 0.0), 100.0)
-
     return round(air_score, 2)
