@@ -83,6 +83,7 @@ class AirQuality:
         temp_value = None
         humidity_value = None
         voc_raw = None
+        voc_index = None
         pm = None
 
         try:
