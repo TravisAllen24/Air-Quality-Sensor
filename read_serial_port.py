@@ -20,7 +20,7 @@ def main():
 				line = raw_line.decode('utf-8', errors='replace').strip()
 				if line:
 					timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-					print(f"{timestamp} - {line}")
+					print(f"{line}")
 			except KeyboardInterrupt:
 				print("\nStopped by user.")
 				break

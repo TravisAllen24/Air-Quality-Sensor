@@ -179,7 +179,7 @@ class AirQuality:
                     pm100 = None
 
                 print(
-                    "RTC: {} | CO2: {} ppm | SHT  T: {} C RH: {}% | VOC Raw: {} | VOC Index: {} | PM: PM10: {}, PM2.5: {}, PM1.0: {}".format(
+                    "RTC: {} | CO2: {} ppm | T: {} C RH: {}% | VOC Raw: {} | VOC Index: {} | PM: PM10: {}, PM2.5: {}, PM1.0: {}".format(
                         format_rtc_datetime(now),
                         format_value(co2_value),
                         format_value(temp_value, 2),
