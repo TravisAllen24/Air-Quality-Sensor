@@ -38,7 +38,7 @@ class SDLogger:
         dt_str = f"{dt.tm_year:04d}{dt.tm_mon:02d}{dt.tm_mday:02d}_{dt.tm_hour:02d}{dt.tm_min:02d}{dt.tm_sec:02d}"
         self.file_path = f"{self.mount_path}/log_{dt_str}.csv"
         with open(self.file_path, "w") as f:
-            f.write("timestamp,co2,temp,humidity,voc_raw,pm10,pm25,pm100\n")
+            f.write("timestamp,co2,temp,humidity,voc_raw,voc_index,pm10,pm25,pm100\n")
         self.active = True
 
     def stop_log(self):
