@@ -26,6 +26,7 @@ def main():
 				break
 			except Exception as e:
 				print(f"Error: {e}")
+				break
 	finally:
 		ser.close()
 		print("Serial port closed.")
