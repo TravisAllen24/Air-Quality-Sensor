@@ -45,14 +45,14 @@ class SDLogger:
         self.active = False
         self.file_path = None
 
-    def log_data_to_sd(self, time, co2_value, temp_value, humidity_value, voc_raw, pm):
+    def log_data_to_sd(self, time, co2_value, temp_value, humidity_value, voc_raw, voc_index, pm):
         if not self.active or not self.file_path:
             return
         pm10 = pm.get("pm10 env") if pm else None
         pm25 = pm.get("pm25 env") if pm else None
         pm100 = pm.get("pm100 env") if pm else None
         with open(self.file_path, "a") as f:
-            f.write(f"{time},{co2_value},{temp_value},{humidity_value},{voc_raw},{pm10},{pm25},{pm100}\n")
+            f.write(f"{time},{co2_value},{temp_value},{humidity_value},{voc_raw},{voc_index},{pm10},{pm25},{pm100}\n")
 
     def unmount(self):
         """Unmount the SD card safely."""

@@ -195,7 +195,7 @@ class AirQuality:
 
                 # If logging, log data to SD card
                 if self.logging:
-                    self.sd_logger.log_data_to_sd(format_rtc_datetime(now), co2_value, temp_value, humidity_value, voc_raw, pm)
+                    self.sd_logger.log_data_to_sd(format_rtc_datetime(now), co2_value, temp_value, humidity_value, voc_raw, voc_index, pm)
                     self.led.blink_once('blue')
 
                 else:
