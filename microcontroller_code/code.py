@@ -71,9 +71,8 @@ class AirQuality:
         print(msg)
         self.sd_logger.log_info(self.rtc.datetime, msg)
         self.sd_logger.unmount()
-        self.led.blink_once('yellow')
         self._shutdown = True  # Set shutdown flag
-        time.sleep(1)  # Allow time for LED blink before turning off
+        self.led.blink_once('yellow')
 
     async def read_sensors(self):
         """
@@ -164,7 +163,7 @@ class AirQuality:
 
             print(
                 "RTC: {} | T: {} C RH: {}% -> DP: {} | CO2: {} ppm | VOC Raw: {} VOC Index: {} | PM10: {} PM2.5: {} PM1.0: {}".format(
-                    format_rtc_datetime(self.now),
+                    format_rtc_datetime(self.rtc.datetime),
                     format_value(self.temp_value, 2),
                     format_value(self.humidity_value, 2),
                     format_value(self.dew_point, 2),
@@ -187,25 +186,17 @@ class AirQuality:
     async def log_data(self):
         while not self._shutdown:
             if self.logging:
-                self.sd_logger.log_data_to_sd(format_rtc_datetime(self.now),
-                                              self.co2_value, self.temp_value,
-                                              self.humidity_value, self.voc_raw,
-                                              self.voc_index, self.pm)
+                self.sd_logger.log_data_to_sd(format_rtc_datetime(self.rtc.datetime),
+                                                self.co2_value, self.temp_value,
+                                                self.humidity_value, self.voc_raw,
+                                                self.voc_index, self.pm)
                 self.led.blink_once('blue')
 
             await asyncio.sleep(self.log_interval)  # Wait for the next logging interval
 
-    async def run(self):
-
-        # Start VOC index background task
-        asyncio.create_task(self.read_voc_index())
-        asyncio.create_task(self.read_sensors())
-        asyncio.create_task(self.print_data())
-        asyncio.create_task(self.log_data())
-
-        while True:
-            self.now = self.rtc.datetime  # Update current time
-            button.update()  # Update button state
+    async def monitor_button(self):
+        while not self._shutdown:
+            self.button.update()  # Update button state
             held_duration = self.button.held()
 
             # Logging toggle only if not holding for shutdown
@@ -226,10 +217,16 @@ class AirQuality:
             elif held_duration >= 2.0:
                 self.safe_shutdown()
 
-            if self._shutdown:
-                break  # Exit the loop if a safe shutdown has been initiated
-
             await asyncio.sleep(0.01)
+
+    async def run(self):
+        await asyncio.gather(
+            self.read_sensors(),
+            self.read_voc_index(),
+            self.print_data(),
+            self.log_data(),
+            self.monitor_button(),
+        )
 
 
 if __name__ == "__main__":
