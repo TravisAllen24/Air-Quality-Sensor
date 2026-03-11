@@ -169,9 +169,9 @@ class AirQuality:
                     format_value(self.co2_value),
                     format_value(self.voc_raw),
                     format_value(self.voc_index),
-                    format_value(self.pm10),
-                    format_value(self.pm25),
                     format_value(self.pm100),
+                    format_value(self.pm25),
+                    format_value(self.pm10),
                 )
             )
 
