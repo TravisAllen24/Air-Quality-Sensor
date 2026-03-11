@@ -83,7 +83,6 @@ class AirQuality:
         temp_value = None
         humidity_value = None
         voc_raw = None
-        voc_index = None
         pm = None
 
         try:
@@ -109,7 +108,6 @@ class AirQuality:
         try:
             # SGP40 raw VOC reading
             voc_raw = self.voc_sensor.measure_raw(temp_value, humidity_value)
-            voc_index = self.voc_sensor.measure_index(temp_value, humidity_value)
         except (OSError, RuntimeError) as e:
             msg = f"Error reading VOC sensor: {e}"
             print(msg)
@@ -125,13 +123,29 @@ class AirQuality:
             self.led.blink_once('red')
             self.sd_logger.log_info(self.rtc.datetime, msg)
 
-        return co2_value, temp_value, humidity_value, voc_raw, voc_index, pm
+        return co2_value, temp_value, humidity_value, voc_raw, pm
+
+
+    async def read_voc_index(self):
+        while not self._shutdown:
+            try:
+                self.voc_index = self.voc_sensor.measure_index()
+            except (OSError, RuntimeError) as e:
+                msg = f"Error reading VOC index: {e}"
+                print(msg)
+                self.led.blink_once('red')
+                self.sd_logger.log_info(self.rtc.datetime, msg)
+                self.voc_index = None
+            await asyncio.sleep(1)  # Wait 1 second between readings
+
 
 
     async def run(self):
         sensor_interval = 5  # seconds
         last_sensor_time = self.rtc.datetime
 
+        # Start VOC index background task
+        asyncio.create_task(self.read_voc_index())
 
         while True:
             button.update()  # Update button state
@@ -158,8 +172,6 @@ class AirQuality:
             if self._shutdown:
                 break  # Exit the loop if a safe shutdown has been initiated
 
-            # ...existing code...
-
             # Always update now and timestamps for interval check
             now = self.rtc.datetime
             now_ts = time.mktime(now)
@@ -167,7 +179,7 @@ class AirQuality:
 
             if (now_ts - last_sensor_ts) >= sensor_interval:
                 # Read all sensors and handle errors gracefully
-                co2_value, temp_value, humidity_value, voc_raw, voc_index, pm = self.read_all_sensors()
+                co2_value, temp_value, humidity_value, voc_raw, pm = self.read_all_sensors()
 
                 # Calculate dew point
                 dew_point = calculate_dew_point(temp_value, humidity_value)
@@ -190,7 +202,7 @@ class AirQuality:
                         format_value(dew_point, 2),
                         format_value(co2_value),
                         format_value(voc_raw),
-                        format_value(voc_index),
+                        format_value(self.voc_index),
                         format_value(pm10),
                         format_value(pm25),
                         format_value(pm100),
@@ -199,11 +211,11 @@ class AirQuality:
 
                 # If logging, log data to SD card
                 if self.logging:
-                    self.sd_logger.log_data_to_sd(format_rtc_datetime(now), co2_value, temp_value, humidity_value, voc_raw, voc_index, pm)
+                    self.sd_logger.log_data_to_sd(format_rtc_datetime(now), co2_value, temp_value, humidity_value, voc_raw, self.voc_index, pm)
                     self.led.blink_once('blue')
 
                 else:
-                    air_score = calculate_air_score(co2_value, temp_value, humidity_value, voc_index, pm)
+                    air_score = calculate_air_score(co2_value, temp_value, humidity_value, self.voc_index, pm)
                     self.led.set_color_by_score(air_score)
 
                 last_sensor_time = now
@@ -237,4 +249,3 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Initialization error: {e}")
         led.error_blink()
-
