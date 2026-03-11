@@ -34,7 +34,8 @@ class SDLogger:
 
     def start_new_log(self, dt: str):
         """Start a new log file with datetime in filename."""
-        self.file_path = f"{self.mount_path}/log_{dt}.csv"
+        dt_sanitised = dt.replace(":", "-").replace(" ", "_")
+        self.file_path = f"{self.mount_path}/log_{dt_sanitised}.csv"
         with open(self.file_path, "w") as f:
             f.write("timestamp,co2,temp,humidity,voc_raw,voc_index,pm10,pm25,pm100\n")
         self.active = True
