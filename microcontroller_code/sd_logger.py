@@ -22,21 +22,19 @@ class SDLogger:
         self.file_path = None
         self.active = False
 
-    def log_info(self, timestamp, message):
+    def log_info(self, dt: str, message: str):
         """Log an info or error message to a separate log file on the SD card."""
         log_file = f"{self.mount_path}/info.log"
         try:
             with open(log_file, "a") as f:
-                f.write(f"{timestamp}: {message}\n")
+                f.write(f"{dt}: {message}\n")
         except Exception as e:
             # If logging fails, print to console as fallback
             print(f"SDLogger log_info error: {e}")
 
-    def start_new_log(self, dt):
+    def start_new_log(self, dt: str):
         """Start a new log file with datetime in filename."""
-        # dt is a datetime object
-        dt_str = f"{dt.tm_year:04d}{dt.tm_mon:02d}{dt.tm_mday:02d}_{dt.tm_hour:02d}{dt.tm_min:02d}{dt.tm_sec:02d}"
-        self.file_path = f"{self.mount_path}/log_{dt_str}.csv"
+        self.file_path = f"{self.mount_path}/log_{dt}.csv"
         with open(self.file_path, "w") as f:
             f.write("timestamp,co2,temp,humidity,voc_raw,voc_index,pm10,pm25,pm100\n")
         self.active = True
@@ -45,14 +43,15 @@ class SDLogger:
         self.active = False
         self.file_path = None
 
-    def log_data_to_sd(self, time, co2_value, temp_value, humidity_value, voc_raw, voc_index, pm):
+    def log_data_to_sd(self, dt: str, co2_value: int|str|None, temp_value: float|str|None, humidity_value: float|str|None,
+                       voc_raw: int|str|None, voc_index: int|str|None, pm:dict|None):
         if not self.active or not self.file_path:
             return
         pm10 = pm.get("pm10 env") if pm else None
         pm25 = pm.get("pm25 env") if pm else None
         pm100 = pm.get("pm100 env") if pm else None
         with open(self.file_path, "a") as f:
-            f.write(f"{time},{co2_value},{temp_value},{humidity_value},{voc_raw},{voc_index},{pm10},{pm25},{pm100}\n")
+            f.write(f"{dt},{co2_value},{temp_value},{humidity_value},{voc_raw},{voc_index},{pm10},{pm25},{pm100}\n")
 
     def unmount(self):
         """Unmount the SD card safely."""

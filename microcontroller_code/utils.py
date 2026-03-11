@@ -1,6 +1,7 @@
 import math
+from time import struct_time
 
-def format_value(value, precision=0):
+def format_value(value: int|float|None, precision: int=0) -> str:
     """Format the value or return '----' if None."""
     if value is None:
         return "----"
@@ -9,7 +10,7 @@ def format_value(value, precision=0):
     return str(value)
 
 
-def format_rtc_datetime(dt):
+def format_rtc_dt(dt: struct_time) -> str:
     """Format struct_time from RTC as YYYY-MM-DD HH:MM:SS string."""
     return "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(
         dt.tm_year, dt.tm_mon, dt.tm_mday, dt.tm_hour, dt.tm_min, dt.tm_sec
@@ -17,7 +18,7 @@ def format_rtc_datetime(dt):
 
 
 # Dew point calculation function
-def calculate_dew_point(temp_c, rh):
+def calculate_dew_point(temp_c: float|None, rh: float|None) -> float|None:
     """
     Calculate the dew point temperature (°C) given temperature (°C) and relative humidity (%).
     Uses the Magnus formula, suitable for typical indoor conditions.
@@ -37,7 +38,7 @@ def calculate_dew_point(temp_c, rh):
 
 
 # Individual scoring functions for each variable
-def co2_score(co2):
+def co2_score(co2: int|None) -> float:
     """CO2 hazard score: 0 (good) to 100 (hazardous)"""
     if co2 is None:
         co2 = 400
@@ -54,7 +55,7 @@ def co2_score(co2):
         return 100.0
 
 
-def pm25_score(pm):
+def pm25_score(pm: dict|None) -> float:
     """PM2.5 hazard score: 0 (good) to 100 (hazardous)"""
     pm25 = 0
     if pm and ("pm25 standard" in pm):
@@ -76,7 +77,7 @@ def pm25_score(pm):
         return 95.0 + min((pm25 - 250) / 250 * 5.0, 5.0)
 
 
-def voc_score(voc_index):
+def voc_score(voc_index: int|None) -> float:
     """VOC index hazard score: 0 (good) to 100 (hazardous)"""
     if voc_index is None:
         voc_index = 0
@@ -93,7 +94,7 @@ def voc_score(voc_index):
         return 90.0 + min((voc_index - 500) / 500 * 10.0, 10.0)
 
 
-def temp_score(temp_c):
+def temp_score(temp_c: float|None) -> float:
     """Temperature comfort penalty: 0 (ideal) to 100 (extreme)"""
     if temp_c is None:
         temp_c = 23.0
@@ -118,7 +119,7 @@ def temp_score(temp_c):
         return 80.0 + min((temp_c - 40.0) / 10.0 * 20.0, 20.0)  # up to 100
 
 
-def rh_score(rh):
+def rh_score(rh: float|None) -> float:
     """Humidity comfort penalty: 0 (ideal) to 100 (extreme)"""
     if rh is None:
         rh = 45.0
@@ -143,7 +144,7 @@ def rh_score(rh):
         return 80.0 + min((rh - 98.0) / 2.0 * 20.0, 20.0)  # up to 100
 
 
-def calculate_air_score(co2, temp_c, rh, voc_index, pm):
+def calculate_air_score(co2: int|None, temp_c: float|None, rh: float|None, voc_index: int|None, pm:dict|None) -> float:
     """
     Air Quality/Health Score: 0 (excellent) → 100 (hazardous)
     - If any hazard is high, the score is high (worst dominates)
