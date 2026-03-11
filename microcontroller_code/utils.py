@@ -1,18 +1,19 @@
+import math
+
 def format_value(value, precision=0):
     """Format the value or return '----' if None."""
     if value is None:
         return "----"
     if isinstance(value, float):
-        return str(round(value, precision))
+        return f"{round(value, precision):.{precision}f}"
     return str(value)
+
 
 def format_rtc_datetime(dt):
     """Format struct_time from RTC as YYYY-MM-DD HH:MM:SS string."""
     return "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(
         dt.tm_year, dt.tm_mon, dt.tm_mday, dt.tm_hour, dt.tm_min, dt.tm_sec
     )
-
-
 
 
 # Individual scoring functions for each variable
@@ -31,6 +32,7 @@ def co2_score(co2):
         return 60.0 + (co2 - 2000) / 3000 * 40.0
     else:
         return 100.0
+
 
 def pm25_score(pm):
     """PM2.5 hazard score: 0 (good) to 100 (hazardous)"""
@@ -53,6 +55,7 @@ def pm25_score(pm):
     else:
         return 95.0 + min((pm25 - 250) / 250 * 5.0, 5.0)
 
+
 def voc_score(voc_index):
     """VOC index hazard score: 0 (good) to 100 (hazardous)"""
     if voc_index is None:
@@ -68,6 +71,7 @@ def voc_score(voc_index):
         return 70.0 + (voc_index - 400) / 100 * 20.0
     else:
         return 90.0 + min((voc_index - 500) / 500 * 10.0, 10.0)
+
 
 def temp_score(temp_c):
     """Temperature comfort penalty: 0 (ideal) to 100 (extreme)"""
@@ -93,6 +97,7 @@ def temp_score(temp_c):
     else:  # temp_c > 40.0
         return 80.0 + min((temp_c - 40.0) / 10.0 * 20.0, 20.0)  # up to 100
 
+
 def rh_score(rh):
     """Humidity comfort penalty: 0 (ideal) to 100 (extreme)"""
     if rh is None:
@@ -117,6 +122,7 @@ def rh_score(rh):
     else:  # rh > 98.0
         return 80.0 + min((rh - 98.0) / 2.0 * 20.0, 20.0)  # up to 100
 
+
 def calculate_air_score(co2, temp_c, rh, voc_index, pm):
     """
     Air Quality/Health Score: 0 (excellent) → 100 (hazardous)
@@ -137,3 +143,23 @@ def calculate_air_score(co2, temp_c, rh, voc_index, pm):
     air_score = alpha * max_score + (1 - alpha) * mean_score
     air_score = min(max(air_score, 0.0), 100.0)
     return round(air_score, 2)
+
+
+# Dew point calculation function
+def calculate_dew_point(temp_c, rh):
+    """
+    Calculate the dew point temperature (°C) given temperature (°C) and relative humidity (%).
+    Uses the Magnus formula, suitable for typical indoor conditions.
+    Returns None if inputs are invalid.
+    """
+    if temp_c is None or rh is None or rh <= 0.0 or rh > 100.0:
+        return None
+    # Magnus formula constants for water vapor over water
+    a = 17.62
+    b = 243.12  # °C
+    try:
+        alpha = ((a * temp_c) / (b + temp_c)) + (math.log(rh / 100.0))
+        dew_point = (b * alpha) / (a - alpha)
+        return round(dew_point, 2)
+    except Exception:
+        return None

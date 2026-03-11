@@ -15,7 +15,7 @@ from adafruit_pcf8523.pcf8523 import PCF8523
 from led import LED
 from button import Button
 from sd_logger import SDLogger
-from utils import format_value, format_rtc_datetime, calculate_air_score
+from utils import format_value, format_rtc_datetime, calculate_dew_point, calculate_air_score
 
 class AirQuality:
 
@@ -169,6 +169,9 @@ class AirQuality:
                 # Read all sensors and handle errors gracefully
                 co2_value, temp_value, humidity_value, voc_raw, voc_index, pm = self.read_all_sensors()
 
+                # Calculate dew point
+                dew_point = calculate_dew_point(temp_value, humidity_value)
+
                 # Extract relevant PM values
                 if pm:
                     pm10 = pm.get("pm10 env")
@@ -180,11 +183,12 @@ class AirQuality:
                     pm100 = None
 
                 print(
-                    "RTC: {} | CO2: {} ppm | T: {} C RH: {}% | VOC Raw: {} | VOC Index: {} | PM: PM10: {}, PM2.5: {}, PM1.0: {}".format(
+                    "RTC: {} | T: {} C RH: {}% -> DP: {} | CO2: {} ppm | VOC Raw: {} VOC Index: {} | PM10: {} PM2.5: {} PM1.0: {}".format(
                         format_rtc_datetime(now),
-                        format_value(co2_value),
                         format_value(temp_value, 2),
                         format_value(humidity_value, 2),
+                        format_value(dew_point, 2),
+                        format_value(co2_value),
                         format_value(voc_raw),
                         format_value(voc_index),
                         format_value(pm10),
@@ -233,3 +237,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Initialization error: {e}")
         led.error_blink()
+
