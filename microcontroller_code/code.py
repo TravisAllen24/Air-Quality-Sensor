@@ -20,7 +20,6 @@ from utils import format_value, format_rtc_datetime, calculate_dew_point, calcul
 class AirQuality:
 
     def __init__(self, led, button, logger):
-
         """Initialize the AirQuality class with LED, button, and logger."""
         self.led = led
         self.button = button
@@ -32,21 +31,13 @@ class AirQuality:
             pass
         self.i2c.unlock()
 
-        # CO2 / T / RH: SCD4x
-        self.co2_sensor = adafruit_scd4x.SCD4X(self.i2c)
+        # Initialize sensors
+        self.co2_sensor = adafruit_scd4x.SCD4X(self.i2c) # CO2 / T / RH: SCD4x
         self.co2_sensor.start_periodic_measurement()
-
-        # Temp / RH: SHT4x
-        self.temp_humidity_sensor = adafruit_sht4x.SHT4x(self.i2c)
-
-        # VOC: SGP40
-        self.voc_sensor = adafruit_sgp40.SGP40(self.i2c)
-
-        # PM: PMSA003I via adafruit_pm25 (I2C)
-        self.pm_sensor = PM25_I2C(self.i2c, reset_pin=None)
-
-        # RTC: PCF8523 (RTC)
-        self.rtc = PCF8523(self.i2c)
+        self.temp_humidity_sensor = adafruit_sht4x.SHT4x(self.i2c) # Temp / RH: SHT4x
+        self.voc_sensor = adafruit_sgp40.SGP40(self.i2c) # VOC: SGP40
+        self.pm_sensor = PM25_I2C(self.i2c, reset_pin=None) # PM: PMSA003I via adafruit_pm25 (I2C)
+        self.rtc = PCF8523(self.i2c) # RTC: PCF8523 (RTC)
 
         # Warmup tracking (SGP40 & SCD4x like a little time)
         self.start_time = self.rtc.datetime
@@ -54,8 +45,24 @@ class AirQuality:
         self.logging = False
         self._shutdown = False  # Flag to indicate if a safe shutdown has been initiated
 
-        self.sd_logger.log_info(self.rtc.datetime, "System initialized and ready.")
+        # Initialize sensor values
+        self.co2_value = None
+        self.temp_value = None
+        self.dew_point = None
+        self.humidity_value = None
+        self.voc_raw = None
+        self.voc_index = None
+        self.pm = None
 
+        # Initialize intervals for reading sensors and logging
+        self.voc_index_interval = 1.0  # seconds
+        self.sensor_interval = 5.0  # seconds
+        self.print_interval = 5.0  # seconds
+        self.log_interval = 5.0  # seconds
+
+        # Log system initialization
+        print("System initialized and ready.")
+        self.sd_logger.log_info(self.rtc.datetime, "System initialized and ready.")
         self.led.blink_once('magenta')  # Indicate system is ready
 
     def safe_shutdown(self):
@@ -68,62 +75,75 @@ class AirQuality:
         self._shutdown = True  # Set shutdown flag
         time.sleep(1)  # Allow time for LED blink before turning off
 
-    def read_all_sensors(self):
+    async def read_sensors(self):
         """
         Reads all connected air quality sensors, handling I2C and runtime errors gracefully.
         Returns:
-            tuple: (co2_value, temp_value, humidity_value, voc_raw, pm)
-                co2_value (float or None): CO2 concentration in ppm, or None if read failed
-                temp_value (float or None): Temperature in Celsius, or None if read failed
+            tuple: (self.co2_value, self.temp_value, humidity_value, self.voc_raw, pm)
+                self.co2_value (float or None): CO2 concentration in ppm, or None if read failed
+                self.temp_value (float or None): Temperature in Celsius, or None if read failed
                 humidity_value (float or None): Relative humidity in %, or None if read failed
-                voc_raw (int or None): Raw VOC sensor value, or None if read failed
+                self.voc_raw (int or None): Raw VOC sensor value, or None if read failed
                 pm (dict or None): PM sensor readings dictionary, or None if read failed
         """
-        co2_value = None
-        temp_value = None
-        humidity_value = None
-        voc_raw = None
-        pm = None
 
-        try:
-            # SCD4x CO2
-            if self.co2_sensor.data_ready:
-                co2_value = self.co2_sensor.CO2
-        except (OSError, RuntimeError) as e:
-            msg = f"Error reading CO2 sensor: {e}"
-            print(msg)
-            self.led.blink_once('red')
-            self.sd_logger.log_info(self.rtc.datetime, msg)
+        while not self._shutdown:
+            try:
+                # SCD4x CO2
+                if self.co2_sensor.data_ready:
+                    self.co2_value = self.co2_sensor.CO2
+            except (OSError, RuntimeError) as e:
+                self.co2_value = None
+                msg = f"Error reading CO2 sensor: {e}"
+                print(msg)
+                self.led.blink_once('red')
+                self.sd_logger.log_info(self.rtc.datetime, msg)
 
-        try:
-            # SHT4x temp / RH
-            temp_value = self.temp_humidity_sensor.temperature
-            humidity_value = self.temp_humidity_sensor.relative_humidity
-        except (OSError, RuntimeError) as e:
-            msg = f"Error reading temperature/humidity sensor: {e}"
-            print(msg)
-            self.led.blink_once('red')
-            self.sd_logger.log_info(self.rtc.datetime, msg)
+            try:
+                # SHT4x temp / RH
+                self.temp_value = self.temp_humidity_sensor.temperature
+                self.humidity_value = self.temp_humidity_sensor.relative_humidity
+                # Calculate dew point
+                self.dew_point = calculate_dew_point(self.temp_value, self.humidity_value)
+            except (OSError, RuntimeError) as e:
+                self.temp_value = None
+                self.humidity_value = None
+                msg = f"Error reading temperature/humidity sensor: {e}"
+                print(msg)
+                self.led.blink_once('red')
+                self.sd_logger.log_info(self.rtc.datetime, msg)
 
-        try:
-            # SGP40 raw VOC reading
-            voc_raw = self.voc_sensor.measure_raw(temp_value, humidity_value)
-        except (OSError, RuntimeError) as e:
-            msg = f"Error reading VOC sensor: {e}"
-            print(msg)
-            self.led.blink_once('red')
-            self.sd_logger.log_info(self.rtc.datetime, msg)
+            try:
+                # SGP40 raw VOC reading
+                self.voc_raw = self.voc_sensor.measure_raw(self.temp_value, self.humidity_value)
+            except (OSError, RuntimeError) as e:
+                self.voc_raw = None
+                msg = f"Error reading VOC sensor: {e}"
+                print(msg)
+                self.led.blink_once('red')
+                self.sd_logger.log_info(self.rtc.datetime, msg)
 
-        try:
-            # PM25 dict
-            pm = self.pm_sensor.read()
-        except (OSError, RuntimeError) as e:
-            msg = f"Error reading PM sensor: {e}"
-            print(msg)
-            self.led.blink_once('red')
-            self.sd_logger.log_info(self.rtc.datetime, msg)
+            try:
+                # PM25 dict
+                self.pm = self.pm_sensor.read()
+            except (OSError, RuntimeError) as e:
+                self.pm = None
+                msg = f"Error reading PM sensor: {e}"
+                print(msg)
+                self.led.blink_once('red')
+                self.sd_logger.log_info(self.rtc.datetime, msg)
 
-        return co2_value, temp_value, humidity_value, voc_raw, pm
+            # Extract relevant PM values
+            if self.pm:
+                self.pm10 = self.pm.get("pm10 env")
+                self.pm25 = self.pm.get("pm25 env")
+                self.pm100 = self.pm.get("pm100 env")
+            else:
+                self.pm10 = None
+                self.pm25 = None
+                self.pm100 = None
+
+            await asyncio.sleep(self.sensor_interval)  # Yield to event loop, check button frequently
 
 
     async def read_voc_index(self):
@@ -136,18 +156,55 @@ class AirQuality:
                 self.led.blink_once('red')
                 self.sd_logger.log_info(self.rtc.datetime, msg)
                 self.voc_index = None
-            await asyncio.sleep(1)  # Wait 1 second between readings
+            await asyncio.sleep(self.voc_index_interval)
 
 
+    async def print_data(self):
+        while not self._shutdown:
+
+            print(
+                "RTC: {} | T: {} C RH: {}% -> DP: {} | CO2: {} ppm | VOC Raw: {} VOC Index: {} | PM10: {} PM2.5: {} PM1.0: {}".format(
+                    format_rtc_datetime(self.now),
+                    format_value(self.temp_value, 2),
+                    format_value(self.humidity_value, 2),
+                    format_value(self.dew_point, 2),
+                    format_value(self.co2_value),
+                    format_value(self.voc_raw),
+                    format_value(self.voc_index),
+                    format_value(self.pm10),
+                    format_value(self.pm25),
+                    format_value(self.pm100),
+                )
+            )
+
+            if not self.logging:
+                air_score = calculate_air_score(self.co2_value, self.temp_value,
+                                                self.humidity_value, self.voc_index, self.pm)
+                self.led.set_color_by_score(air_score)
+
+            await asyncio.sleep(self.print_interval)  # Wait for the next logging interval
+
+    async def log_data(self):
+        while not self._shutdown:
+            if self.logging:
+                self.sd_logger.log_data_to_sd(format_rtc_datetime(self.now),
+                                              self.co2_value, self.temp_value,
+                                              self.humidity_value, self.voc_raw,
+                                              self.voc_index, self.pm)
+                self.led.blink_once('blue')
+
+            await asyncio.sleep(self.log_interval)  # Wait for the next logging interval
 
     async def run(self):
-        sensor_interval = 5  # seconds
-        last_sensor_time = self.rtc.datetime
 
         # Start VOC index background task
         asyncio.create_task(self.read_voc_index())
+        asyncio.create_task(self.read_sensors())
+        asyncio.create_task(self.print_data())
+        asyncio.create_task(self.log_data())
 
         while True:
+            self.now = self.rtc.datetime  # Update current time
             button.update()  # Update button state
             held_duration = self.button.held()
 
@@ -172,55 +229,7 @@ class AirQuality:
             if self._shutdown:
                 break  # Exit the loop if a safe shutdown has been initiated
 
-            # Always update now and timestamps for interval check
-            now = self.rtc.datetime
-            now_ts = time.mktime(now)
-            last_sensor_ts = time.mktime(last_sensor_time)
-
-            if (now_ts - last_sensor_ts) >= sensor_interval:
-                # Read all sensors and handle errors gracefully
-                co2_value, temp_value, humidity_value, voc_raw, pm = self.read_all_sensors()
-
-                # Calculate dew point
-                dew_point = calculate_dew_point(temp_value, humidity_value)
-
-                # Extract relevant PM values
-                if pm:
-                    pm10 = pm.get("pm10 env")
-                    pm25 = pm.get("pm25 env")
-                    pm100 = pm.get("pm100 env")
-                else:
-                    pm10 = None
-                    pm25 = None
-                    pm100 = None
-
-                print(
-                    "RTC: {} | T: {} C RH: {}% -> DP: {} | CO2: {} ppm | VOC Raw: {} VOC Index: {} | PM10: {} PM2.5: {} PM1.0: {}".format(
-                        format_rtc_datetime(now),
-                        format_value(temp_value, 2),
-                        format_value(humidity_value, 2),
-                        format_value(dew_point, 2),
-                        format_value(co2_value),
-                        format_value(voc_raw),
-                        format_value(self.voc_index),
-                        format_value(pm10),
-                        format_value(pm25),
-                        format_value(pm100),
-                    )
-                )
-
-                # If logging, log data to SD card
-                if self.logging:
-                    self.sd_logger.log_data_to_sd(format_rtc_datetime(now), co2_value, temp_value, humidity_value, voc_raw, self.voc_index, pm)
-                    self.led.blink_once('blue')
-
-                else:
-                    air_score = calculate_air_score(co2_value, temp_value, humidity_value, self.voc_index, pm)
-                    self.led.set_color_by_score(air_score)
-
-                last_sensor_time = now
-
-            await asyncio.sleep(0.01)  # Yield to event loop, check button frequently
+            await asyncio.sleep(0.01)
 
 
 if __name__ == "__main__":
