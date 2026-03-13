@@ -1,5 +1,4 @@
 import math
-from time import struct_time
 
 def format_value(value: int|float|None, precision: int=0) -> str:
     """Format the value or return '----' if None."""
@@ -10,8 +9,9 @@ def format_value(value: int|float|None, precision: int=0) -> str:
     return str(value)
 
 
-def format_rtc_dt(dt: struct_time) -> str:
-    """Format struct_time from RTC as YYYY-MM-DD HH:MM:SS string."""
+def format_rtc_dt(dt) -> str:
+    """dt: time.struct_time from RTC
+    Format struct_time from RTC as YYYY-MM-DD HH:MM:SS string."""
     return "{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}".format(
         dt.tm_year, dt.tm_mon, dt.tm_mday, dt.tm_hour, dt.tm_min, dt.tm_sec
     )

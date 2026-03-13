@@ -18,11 +18,11 @@ class AirQuality:
     AirQuality class that takes sensor measurements and handles all high level processes.
     """
 
-    def __init__(self, led: LED, button: Button, logger: SDLogger):
+    def __init__(self, led, button, logger) -> None:
         # Initialize the AirQuality class with LED, button, and logger
-        self.led: LED = led
-        self.button: Button = button
-        self.sd_logger: SDLogger = logger
+        self.led = led
+        self.button = button
+        self.sd_logger = logger
 
         # Initialize I2C (and wait until ready)
         self.i2c = busio.I2C(board.SCL, board.SDA, frequency=100_000)
