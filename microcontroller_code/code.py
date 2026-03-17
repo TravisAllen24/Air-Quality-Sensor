@@ -1,35 +1,33 @@
-
 import asyncio
 
 from led import LED
-from button import Button
-from sd_logger import SDLogger
-from air_quality import AirQuality
+from air_quality_sensor import AirQualitySensor
 
-
-if __name__ == "__main__":
-    # --- Init objects ---
+def main():
+    # Initialize LED
     led = LED()
-    button = Button()
 
     try:
-        sd_logger = SDLogger()
-        air_quality = AirQuality(led, button, sd_logger)
+        # Initialize AirQualitySensor with LED
+        with AirQualitySensor(led) as air_quality:
 
-        try:
-            asyncio.run(air_quality.run())
+            try:
+                asyncio.run(air_quality.run())
 
-        except KeyboardInterrupt:
-            print("Program interrupted by user.")
-            sd_logger.log_info(air_quality.now, "Program interrupted by user.")
-            air_quality.safe_shutdown()
+            except KeyboardInterrupt:
+                air_quality.sd_logger.log_info("Program interrupted by user.", color='yellow')
 
-        except Exception as e:
-            print(f'Error: {e}')
-            sd_logger.log_info(air_quality.now, f"Error: {e}")
-            air_quality.safe_shutdown()
-            led.error_blink()
+            except Exception as e:
+                air_quality.sd_logger.log_info(f"Error: {e}")
+                raise RuntimeError
+
+    except RuntimeError as e:
+        print(f"A runtime error occurred. {e}")
+        led.error_blink()
 
     except Exception as e:
         print(f"Initialization error: {e}")
         led.error_blink()
+
+if __name__ == "__main__":
+    main()

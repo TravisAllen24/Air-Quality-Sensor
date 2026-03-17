@@ -1,8 +1,8 @@
 import time
-import board
-import busio
+import board # type: ignore
+import busio # type: ignore
 
-from adafruit_pcf8523.pcf8523 import PCF8523
+from adafruit_pcf8523.pcf8523 import PCF8523 # type: ignore
 
 i2c = busio.I2C(board.SCL, board.SDA)
 rtc = PCF8523(i2c)

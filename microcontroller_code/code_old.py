@@ -2,14 +2,14 @@
 
 import time
 import asyncio
-import board
-import busio
+import board # type: ignore
+import busio # type: ignore
 
-import adafruit_scd4x
-import adafruit_sht4x
-import adafruit_sgp40
-import adafruit_sgp41
-from adafruit_pm25.i2c import PM25_I2C
+import adafruit_scd4x # type: ignore
+import adafruit_sht4x # type: ignore
+import adafruit_sgp40 # type: ignore
+import adafruit_sgp41 # type: ignore
+from adafruit_pm25.i2c import PM25_I2C # type: ignore
 
 from led import LED
 from button import Button

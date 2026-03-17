@@ -1,9 +1,8 @@
 """Test script to read and print the current datetime from the PCF8523 RTC."""
 
-import board
-import busio
-from adafruit_pcf8523.pcf8523 import PCF8523
-import time
+import board # type: ignore
+import busio # type: ignore
+from adafruit_pcf8523.pcf8523 import PCF8523 # type: ignore
 
 # Initialize I2C
 i2c = busio.I2C(board.SCL, board.SDA)
