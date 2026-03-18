@@ -6,12 +6,12 @@ import busio
 
 import adafruit_scd4x
 import adafruit_sht4x
-import adafruit_sgp40
-# import adafruit_sgp41 # For future implementation
+import adafruit_sgp41
 from adafruit_pm25.i2c import PM25_I2C
 from adafruit_pcf8523.pcf8523 import PCF8523
 
 from utils import format_value, format_rtc_dt, calculate_dew_point, calculate_air_score
+from gas_index_algorithm import GasIndexAlgorithm
 
 class AirQuality:
     """
@@ -34,7 +34,9 @@ class AirQuality:
         self.co2_sensor = adafruit_scd4x.SCD4X(self.i2c) # CO2 / T / RH: SCD4x
         self.co2_sensor.start_periodic_measurement()
         self.temp_humidity_sensor = adafruit_sht4x.SHT4x(self.i2c) # Temp / RH: SHT4x
-        self.voc_sensor = adafruit_sgp40.SGP40(self.i2c) # VOC: SGP40
+        self.voc_sensor = adafruit_sgp41.Adafruit_SGP41(self.i2c) # VOC / NOx: SGP41
+        self.voc_algorithm = GasIndexAlgorithm(GasIndexAlgorithm.ALGORITHM_TYPE_VOC)
+        self.nox_algorithm = GasIndexAlgorithm(GasIndexAlgorithm.ALGORITHM_TYPE_NOX)
         self.pm_sensor = PM25_I2C(self.i2c, reset_pin=None) # PM: PMSA003I via adafruit_pm25 (I2C)
         self.rtc = PCF8523(self.i2c) # RTC: PCF8523 (RTC)
 
@@ -44,7 +46,9 @@ class AirQuality:
         self.dew_point: float|None = None
         self.humidity_value: float|None = None
         self.voc_raw: int|None = None
+        self.nox_raw: int|None = None
         self.voc_index: int|None = None
+        self.nox_index: int|None = None
         self.pm: dict|None = None
 
         # Initialize intervals for reading sensors and logging
@@ -111,13 +115,6 @@ class AirQuality:
                 self.log_print_blink(msg=f"Error reading temperature/humidity sensor: {e}", color='red')
 
             try:
-                # SGP40 raw VOC reading
-                self.voc_raw = self.voc_sensor.measure_raw(self.temp_value, self.humidity_value)
-            except (OSError, RuntimeError) as e:
-                self.voc_raw = None
-                self.log_print_blink(msg=f"Error reading VOC sensor: {e}", color='red')
-
-            try:
                 # PM25 dict
                 self.pm = self.pm_sensor.read()
             except (OSError, RuntimeError) as e:
@@ -137,17 +134,41 @@ class AirQuality:
             await asyncio.sleep(self.sensor_interval)  # Yield to event loop, check button frequently
 
 
+    async def condition_voc_sensor(self, duration: int = 10) -> None:
+        """
+        Runs the SGP41 conditioning phase, calling conditioning() once per second
+        for the specified duration (default 10 seconds).
+        """
+        for _ in range(duration):
+            if self._shutdown:
+                return
+            try:
+                self.voc_sensor.conditioning(self.temp_value, self.humidity_value)
+            except (OSError, RuntimeError) as e:
+                self.log_print_blink(msg=f"Error during VOC conditioning: {e}", color='red')
+            await asyncio.sleep(self.voc_index_interval)
+
     async def read_voc_index(self) -> None:
         """
-        Reads voc index from voc sensor.
-        Returns self.voc_index (int or None): Calculated VOC Index, or None if read failed
+        Conditions the SGP41 sensor, then reads raw VOC/NOx
+        and computes the VOC index via VOCAlgorithm.
         """
+        await self.condition_voc_sensor()
+
+        # Main measurement loop
         while not self._shutdown:
             try:
-                self.voc_index = self.voc_sensor.measure_index(self.temp_value, self.humidity_value)
+                self.voc_raw, self.nox_raw = self.voc_sensor.measure_raw(
+                    self.temp_value, self.humidity_value
+                )
+                self.voc_index = self.voc_algorithm.process(self.voc_raw)
+                self.nox_index = self.nox_algorithm.process(self.nox_raw)
             except (OSError, RuntimeError) as e:
+                self.voc_raw = None
+                self.nox_raw = None
                 self.voc_index = None
-                self.log_print_blink(msg=f"Error reading VOC index: {e}", color='red')
+                self.nox_index = None
+                self.log_print_blink(msg=f"Error reading VOC/NOx sensor: {e}", color='red')
             await asyncio.sleep(self.voc_index_interval)
 
 
@@ -158,14 +179,16 @@ class AirQuality:
         while not self._shutdown:
 
             print(
-                "RTC: {} | T: {} C RH: {}% -> DP: {} | CO2: {} ppm | VOC Raw: {} VOC Index: {} | PM10: {} PM2.5: {} PM1.0: {}".format(
+                "RTC: {} | T: {} C RH: {}% -> DP: {} | CO2: {} ppm | VOC Raw: {} NOx Raw: {} VOC Index: {} NOx Index: {} | PM10: {} PM2.5: {} PM1.0: {}".format(
                     self.now,
                     format_value(self.temp_value, 2),
                     format_value(self.humidity_value, 2),
                     format_value(self.dew_point, 2),
                     format_value(self.co2_value),
                     format_value(self.voc_raw),
+                    format_value(self.nox_raw),
                     format_value(self.voc_index),
+                    format_value(self.nox_index),
                     format_value(self.pm100),
                     format_value(self.pm25),
                     format_value(self.pm10),
