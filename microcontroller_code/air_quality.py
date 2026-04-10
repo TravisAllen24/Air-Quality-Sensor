@@ -18,7 +18,7 @@ class AirQuality:
     AirQuality class that takes sensor measurements and handles all high level processes.
     """
 
-    def __init__(self, led, button, logger) -> None:
+    def __init__(self, led, button, logger=None) -> None:
         # Initialize the AirQuality class with LED, button, and logger
         self.led = led
         self.button = button
@@ -68,14 +68,16 @@ class AirQuality:
         """
         Logs msg to sd_logger.log_info as an event, prints msg, then blinks led once at the color specified.
         """
-        self.sd_logger.log_info(self.now, msg)
+        if self.sd_logger:
+            self.sd_logger.log_info(self.now, msg)
         print(msg)
         self.led.blink_once(color)
 
     def safe_shutdown(self) -> None:
         """Perform safe shutdown actions: log, LED, and optionally power down hardware."""
         self.log_print_blink(msg="Safe shutdown initiated.", color='yellow')
-        self.sd_logger.unmount()
+        if self.sd_logger:
+            self.sd_logger.unmount()
         self._shutdown = True  # Set shutdown flag
 
     async def read_sensors(self) -> None:
@@ -184,7 +186,7 @@ class AirQuality:
         Logs data if self.logging is True.
         """
         while not self._shutdown:
-            if self.logging:
+            if self.logging and self.sd_logger:
                 self.sd_logger.log_data_to_sd(self.now,
                                                 self.co2_value, self.temp_value,
                                                 self.humidity_value, self.voc_raw,
@@ -206,10 +208,12 @@ class AirQuality:
                 self.logging = not self.logging
                 if self.logging:
                     # Start new log file with RTC datetime
-                    self.sd_logger.start_new_log(self.now)
+                    if self.sd_logger:
+                        self.sd_logger.start_new_log(self.now)
                     self.log_print_blink(msg="Logging started.", color='blue')
                 else:
-                    self.sd_logger.stop_log()
+                    if self.sd_logger:
+                        self.sd_logger.stop_log()
                     self.log_print_blink(msg="Logging stopped.", color='blue')
 
             # Safe shutdown only if held
