@@ -9,7 +9,6 @@ import adafruit_sgp41 # type: ignore
 from adafruit_pm25.i2c import PM25_I2C # type: ignore
 
 from sd_logger import SDLogger
-from rtc import RTC
 from button import Button
 from i2c import I2C
 from utils import format_value, calculate_dew_point, calculate_air_score_color

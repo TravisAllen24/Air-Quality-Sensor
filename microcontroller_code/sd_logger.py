@@ -50,7 +50,7 @@ class SDLogger:
         dt_sanitised = self.rtc.now.replace(":", "-").replace(" ", "_")
         self.file_path = f"{self.mount_path}/log_{dt_sanitised}.csv"
         with open(self.file_path, "w") as f:
-            f.write("timestamp,co2,temp,humidity,voc_raw,voc_index,pm10,pm25,pm100\n")
+            f.write("timestamp,co2 (ppm),temp (C),humidity (%),voc_raw,voc_index,pm10 (ug/m3),pm25 (ug/m3),pm100 (ug/m3)\n")
         self.active = True
 
     def stop_log(self):
