@@ -11,8 +11,8 @@ from adafruit_pm25.i2c import PM25_I2C # type: ignore
 from sd_logger import SDLogger
 from button import Button
 from i2c import I2C
-from utils import format_value, calculate_dew_point, calculate_air_score_color, c_to_f
-from microcontroller_code.aqs_settings import load_settings, get
+from utils import calculate_dew_point, calculate_air_score_color
+from aqs_settings import load_settings, get
 
 class AirQualitySensor:
     """
@@ -26,7 +26,9 @@ class AirQualitySensor:
         # Initialize the AirQuality class with button, RTC, and logger
         i2c = I2C()
         self.button = Button()
-        self.sd_logger = SDLogger(i2c, led, should_print=get(self.cfg, "display.should_print", True))
+        self.sd_logger = SDLogger(i2c, led,
+                                   should_print=get(self.cfg, "display.should_print", True),
+                                   temp_unit=get(self.cfg, "display.temp_unit", "C"))
 
         # Initialize sensors
         self.co2_sensor = adafruit_scd4x.SCD4X(i2c) # CO2 / T / RH: SCD4x
@@ -45,7 +47,6 @@ class AirQualitySensor:
         self.pm: dict|None = None
 
         # Settings
-        self.temp_unit = get(self.cfg, "display.temp_unit", "C")
         self.shutdown_hold = get(self.cfg, "button.shutdown_hold", 2.0)
 
         # Initialize intervals from settings
@@ -152,28 +153,11 @@ class AirQualitySensor:
         Prints sensor data to console and calculates air score and sets led color by score if not logging.
         """
         while not self._shutdown:
-            if self.temp_unit == "F":
-                temp_display = format_value(c_to_f(self.temp_value), 2)
-                dp_display = format_value(c_to_f(self.dew_point), 2)
-            else:
-                temp_display = format_value(self.temp_value, 2)
-                dp_display = format_value(self.dew_point, 2)
-
-            msg = ("T: {} {} RH: {}% -> DP: {} {} | CO2: {} ppm | VOC Raw: {} VOC Index: {} | PM10: {} PM2.5: {} PM1.0: {}".format(
-                        temp_display,
-                        self.temp_unit,
-                        format_value(self.humidity_value, 2),
-                        dp_display,
-                        self.temp_unit,
-                        format_value(self.co2_value),
-                        format_value(self.voc_raw),
-                        format_value(self.voc_index),
-                        format_value(self.pm100),
-                        format_value(self.pm25),
-                        format_value(self.pm10),
-            ))
-
-            self.sd_logger.print_with_timestamp(msg)
+            self.sd_logger.print_sensor_data(
+                self.co2_value, self.temp_value, self.humidity_value,
+                self.dew_point, self.voc_raw, self.voc_index,
+                self.pm10, self.pm25, self.pm100
+            )
 
             if not self._logging:
                 air_score_color = calculate_air_score_color(self.co2_value, self.temp_value,

@@ -2,7 +2,7 @@ import asyncio
 
 from led import LED
 from air_quality_sensor import AirQualitySensor
-from microcontroller_code.aqs_settings import load_settings, get
+from aqs_settings import load_settings, get
 
 def main():
     # Load settings
