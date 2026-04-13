@@ -17,6 +17,13 @@ def format_rtc_dt(dt) -> str:
     )
 
 
+def c_to_f(temp_c: float|None) -> float|None:
+    """Convert Celsius to Fahrenheit, or return None if input is None."""
+    if temp_c is None:
+        return None
+    return temp_c * 9.0 / 5.0 + 32.0
+
+
 # Dew point calculation function
 def calculate_dew_point(temp_c: float|None, rh: float|None) -> float|None:
     """

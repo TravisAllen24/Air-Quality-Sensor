@@ -11,7 +11,7 @@ from adafruit_pm25.i2c import PM25_I2C # type: ignore
 from sd_logger import SDLogger
 from button import Button
 from i2c import I2C
-from utils import format_value, calculate_dew_point, calculate_air_score_color
+from utils import format_value, calculate_dew_point, calculate_air_score_color, c_to_f
 
 class AirQualitySensor:
     """
@@ -146,6 +146,7 @@ class AirQualitySensor:
         while not self._shutdown:
             msg = ("T: {} C RH: {}% -> DP: {} | CO2: {} ppm | VOC Raw: {} VOC Index: {} | PM10: {} PM2.5: {} PM1.0: {}".format(
                         format_value(self.temp_value, 2),
+                        format_value(c_to_f(self.temp_value), 2),
                         format_value(self.humidity_value, 2),
                         format_value(self.dew_point, 2),
                         format_value(self.co2_value),
@@ -160,11 +161,11 @@ class AirQualitySensor:
 
             if not self._logging:
                 air_score_color = calculate_air_score_color(self.co2_value, self.temp_value,
-                                                self.humidity_value, self.voc_index, self.pm25)
+                                                self.humidity_value, self.voc_index, self.pm)
 
                 self.sd_logger.led.set_color(air_score_color)
 
-        await asyncio.sleep(self.print_interval)  # Wait for the next logging interval
+            await asyncio.sleep(self.print_interval)  # Wait for the next logging interval
 
     async def log_data(self) -> None:
         """

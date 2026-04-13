@@ -7,7 +7,7 @@ import storage # type: ignore
 import adafruit_sdcard # type: ignore
 import digitalio # type: ignore
 
-from rtc import RTC
+from clock import RTC
 
 class SDLogger:
     def __init__(self, i2c, led, cs_pin=board.D10, spi=None, mount_path="/sd", should_print: bool = True):
