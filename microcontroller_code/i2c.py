@@ -1,11 +1,11 @@
 import busio # type: ignore
 import board # type: ignore
 
-def I2C():
+class I2C(busio.I2C):
     """Initialize I2C bus."""
     # Initialize I2C (and wait until ready)
-    i2c = busio.I2C(board.SCL, board.SDA, frequency=100_000)
-    while not i2c.try_lock():
-        pass
-    i2c.unlock()
-    return i2c
+    def __init__(self):
+        super().__init__(board.SCL, board.SDA, frequency=100_000)
+        while not self.try_lock():
+            pass
+        self.unlock()

@@ -7,13 +7,13 @@ import storage # type: ignore
 import adafruit_sdcard # type: ignore
 import digitalio # type: ignore
 
-from clock import RTC
+from clock import Clock
 from utils import format_value, c_to_f
 
 class SDLogger:
     def __init__(self, i2c, led, cs_pin=board.D10, spi=None, mount_path="/sd", should_print: bool = True, temp_unit: str = "C"):
         """Mount SD card and prepare for logging."""
-        self.rtc = RTC(i2c)
+        self.rtc = Clock(i2c)
         self.led = led
         self.temp_unit = temp_unit
         # Set up SPI and SD card
