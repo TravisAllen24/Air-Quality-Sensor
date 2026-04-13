@@ -144,7 +144,7 @@ class AirQualitySensor:
         Prints sensor data to console and calculates air score and sets led color by score if not logging.
         """
         while not self._shutdown:
-            msg = ("T: {} C RH: {}% -> DP: {} | CO2: {} ppm | VOC Raw: {} VOC Index: {} | PM10: {} PM2.5: {} PM1.0: {}".format(
+            msg = ("T: {} C T: {} F RH: {}% -> DP: {} C | CO2: {} ppm | VOC Raw: {} VOC Index: {} | PM10: {} PM2.5: {} PM1.0: {}".format(
                         format_value(self.temp_value, 2),
                         format_value(c_to_f(self.temp_value), 2),
                         format_value(self.humidity_value, 2),
