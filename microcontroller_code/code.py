@@ -2,10 +2,14 @@ import asyncio
 
 from led import LED
 from air_quality_sensor import AirQualitySensor
+from microcontroller_code.aqs_settings import load_settings, get
 
 def main():
+    # Load settings
+    cfg = load_settings()
+
     # Initialize LED
-    led = LED()
+    led = LED(brightness=get(cfg, "led.brightness", 0.2))
 
     try:
         # Initialize AirQualitySensor with LED

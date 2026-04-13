@@ -12,6 +12,7 @@ from sd_logger import SDLogger
 from button import Button
 from i2c import I2C
 from utils import format_value, calculate_dew_point, calculate_air_score_color, c_to_f
+from microcontroller_code.aqs_settings import load_settings, get
 
 class AirQualitySensor:
     """
@@ -19,10 +20,13 @@ class AirQualitySensor:
     """
 
     def __init__(self, led) -> None:
+        # Load settings from TOML
+        self.cfg = load_settings()
+
         # Initialize the AirQuality class with button, RTC, and logger
         i2c = I2C()
         self.button = Button()
-        self.sd_logger = SDLogger(i2c, led)
+        self.sd_logger = SDLogger(i2c, led, should_print=get(self.cfg, "display.should_print", True))
 
         # Initialize sensors
         self.co2_sensor = adafruit_scd4x.SCD4X(i2c) # CO2 / T / RH: SCD4x
@@ -40,11 +44,15 @@ class AirQualitySensor:
         self.voc_index: int|None = None
         self.pm: dict|None = None
 
-        # Initialize intervals for reading sensors and logging
-        self.voc_index_interval: float = 1.0  # seconds
-        self.sensor_interval: float = 5.0  # seconds
-        self.print_interval: float = 5.0  # seconds
-        self.log_interval: float = 5.0  # seconds
+        # Settings
+        self.temp_unit = get(self.cfg, "display.temp_unit", "C")
+        self.shutdown_hold = get(self.cfg, "button.shutdown_hold", 2.0)
+
+        # Initialize intervals from settings
+        self.voc_index_interval: float = get(self.cfg, "intervals.voc_index", 1.0)
+        self.sensor_interval: float = get(self.cfg, "intervals.sensor", 5.0)
+        self.print_interval: float = get(self.cfg, "intervals.print", 5.0)
+        self.log_interval: float = get(self.cfg, "intervals.log", 5.0)
 
         # Flags
         self._logging: bool = False
@@ -144,11 +152,19 @@ class AirQualitySensor:
         Prints sensor data to console and calculates air score and sets led color by score if not logging.
         """
         while not self._shutdown:
-            msg = ("T: {} C T: {} F RH: {}% -> DP: {} C | CO2: {} ppm | VOC Raw: {} VOC Index: {} | PM10: {} PM2.5: {} PM1.0: {}".format(
-                        format_value(self.temp_value, 2),
-                        format_value(c_to_f(self.temp_value), 2),
+            if self.temp_unit == "F":
+                temp_display = format_value(c_to_f(self.temp_value), 2)
+                dp_display = format_value(c_to_f(self.dew_point), 2)
+            else:
+                temp_display = format_value(self.temp_value, 2)
+                dp_display = format_value(self.dew_point, 2)
+
+            msg = ("T: {} {} RH: {}% -> DP: {} {} | CO2: {} ppm | VOC Raw: {} VOC Index: {} | PM10: {} PM2.5: {} PM1.0: {}".format(
+                        temp_display,
+                        self.temp_unit,
                         format_value(self.humidity_value, 2),
-                        format_value(self.dew_point, 2),
+                        dp_display,
+                        self.temp_unit,
                         format_value(self.co2_value),
                         format_value(self.voc_raw),
                         format_value(self.voc_index),
@@ -199,7 +215,7 @@ class AirQualitySensor:
                     self.sd_logger.log_info(msg="Logging stopped.", color='blue')
 
             # Safe shutdown only if held
-            elif held_duration >= 2.0:
+            elif held_duration >= self.shutdown_hold:
                 raise KeyboardInterrupt("Button held for safe shutdown.")
 
             await asyncio.sleep(0.01)

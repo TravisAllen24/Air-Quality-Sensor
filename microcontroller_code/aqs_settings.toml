@@ -1,0 +1,15 @@
+[display]
+temp_unit = "C"          # "C" for Celsius, "F" for Fahrenheit
+should_print = true      # print sensor data to serial console
+
+[intervals]
+sensor = 5.0             # seconds between sensor reads
+voc_index = 1.0          # seconds between VOC index reads
+print = 5.0              # seconds between console prints
+log = 5.0                # seconds between SD card log writes
+
+[led]
+brightness = 0.2         # NeoPixel brightness (0.0 - 1.0)
+
+[button]
+shutdown_hold = 2.0      # seconds to hold button for shutdown
