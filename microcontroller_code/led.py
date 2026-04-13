@@ -1,7 +1,7 @@
 from time import sleep
 
-import neopixel
-import board
+import neopixel # type: ignore
+import board # type: ignore
 
 # Define a color mapping for common color names
 COLOR_MAPPING = {
@@ -12,6 +12,7 @@ COLOR_MAPPING = {
     "cyan": (0, 255, 255),
     "magenta": (255, 0, 255),
     "white": (255, 255, 255),
+    "orange": (255, 165, 0),
     "off": (0, 0, 0),
 }
 
@@ -24,11 +25,12 @@ class LED:
         self.pixels.show()
         self._is_on = False
 
-    def set_color(self, color):
+    def set_color(self, color: tuple):
         """Set the LED to a specific color."""
         self.pixels.fill(color)
         self.pixels.show()
         self._is_on = True
+
 
     def on(self, color):
         led_color = COLOR_MAPPING.get(color, (0, 0, 0))
@@ -60,19 +62,3 @@ class LED:
             self.blink_once(color, duration)
 
             sleep(1)
-
-    def set_color_by_score(self, air_score):
-        """Map air_score to a color and set the LED.
-
-        Args:
-            air_score (int): Air quality score between 0 (good) and 100 (bad).
-        """
-        # Ensure air_score is within bounds
-        air_score = max(0, min(100, air_score))
-
-        # Calculate the red and green components for the gradient
-        red = int((air_score / 100) * 255)
-        green = int((1 - air_score / 100) * 255)
-
-        # Set the LED color
-        self.set_color((red, green, 0))

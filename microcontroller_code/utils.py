@@ -17,6 +17,13 @@ def format_rtc_dt(dt) -> str:
     )
 
 
+def c_to_f(temp_c: float|None) -> float|None:
+    """Convert Celsius to Fahrenheit, or return None if input is None."""
+    if temp_c is None:
+        return None
+    return temp_c * 9.0 / 5.0 + 32.0
+
+
 # Dew point calculation function
 def calculate_dew_point(temp_c: float|None, rh: float|None) -> float|None:
     """
@@ -164,3 +171,18 @@ def calculate_air_score(co2: int|None, temp_c: float|None, rh: float|None, voc_i
     air_score = alpha * max_score + (1 - alpha) * mean_score
     air_score = min(max(air_score, 0.0), 100.0)
     return round(air_score, 2)
+
+def calculate_color_by_score(air_score):
+    # Ensure air_score is within bounds
+    air_score = max(0, min(100, air_score))
+
+    # Calculate the red and green components for the gradient
+    red = int((air_score / 100) * 255)
+    green = int((1 - air_score / 100) * 255)
+
+    return (red, green, 0)
+
+def calculate_air_score_color(co2, temp_c, rh, voc_index, pm):
+    air_score = calculate_air_score(co2, temp_c, rh, voc_index, pm)
+    return calculate_color_by_score(air_score)
+
