@@ -2,10 +2,10 @@
 
 import asyncio
 
-import adafruit_scd4x # type: ignore
-import adafruit_sht4x # type: ignore
-import adafruit_sgp40 # type: ignore
-import adafruit_sgp41 # type: ignore
+from adafruit_scd4x import SCD4X # type: ignore
+from adafruit_sht4x import SHT4x # type: ignore
+from adafruit_sgp40 import SGP40 # type: ignore
+from adafruit_sgp41 import SGP41 # type: ignore
 from adafruit_pm25.i2c import PM25_I2C # type: ignore
 
 from sd_logger import SDLogger
@@ -31,10 +31,10 @@ class AirQualitySensor:
                                    temp_unit=get(self.cfg, "display.temp_unit", "C"))
 
         # Initialize sensors
-        self.co2_sensor = adafruit_scd4x.SCD4X(i2c) # CO2 / T / RH: SCD4x
+        self.co2_sensor = SCD4X(i2c) # CO2 / T / RH: SCD4x
         self.co2_sensor.start_periodic_measurement()
-        self.temp_humidity_sensor = adafruit_sht4x.SHT4x(i2c) # Temp / RH: SHT4x
-        self.voc_sensor = adafruit_sgp40.SGP40(i2c) # VOC: SGP40
+        self.temp_humidity_sensor = SHT4x(i2c) # Temp / RH: SHT4x
+        self.voc_sensor = SGP40(i2c) # VOC: SGP40
         self.pm_sensor = PM25_I2C(i2c, reset_pin=None) # PM: PMSA003I via adafruit_pm25 (I2C)
 
         # Initialize sensor values
