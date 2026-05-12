@@ -1,27 +1,21 @@
-
-
-
 import board # type: ignore
-import busio # type: ignore
 import storage # type: ignore
-import adafruit_sdcard # type: ignore
-import digitalio # type: ignore
+import sdcardio # type: ignore
 
 from clock import Clock
 from utils import format_value, c_to_f
 
 class SDLogger:
-    def __init__(self, i2c, led, cs_pin=board.D10, spi=None, mount_path="/sd", should_print: bool = True, temp_unit: str = "C"):
+    def __init__(self, i2c, led, should_print: bool = True, temp_unit: str = "C"):
         """Mount SD card and prepare for logging."""
         self.rtc = Clock(i2c)
         self.led = led
         self.temp_unit = temp_unit
         # Set up SPI and SD card
-        if spi is None:
-            spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
-        self.cs = digitalio.DigitalInOut(cs_pin)
-        self.sdcard = adafruit_sdcard.SDCard(spi, self.cs)
-        self.mount_path = mount_path
+        cs_pin = board.D10
+        spi_pin = board.SPI()
+        self.sdcard = sdcardio.SDCard(spi_pin, cs_pin)
+        self.mount_path = "/sd"
         # Mount SD card
         vfs = storage.VfsFat(self.sdcard)
         storage.mount(vfs, self.mount_path)
