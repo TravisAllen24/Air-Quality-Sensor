@@ -7,6 +7,12 @@ class Clock:
         self.i2c = i2c
         self.rtc = PCF8523(self.i2c) # RTC: PCF8523 (RTC)
 
+
     @property
     def now(self) -> str:
         return format_rtc_dt(self.rtc.datetime)
+
+
+    @property
+    def datetime(self):
+        return self.rtc.datetime

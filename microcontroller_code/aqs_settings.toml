@@ -1,6 +1,7 @@
 [display]
 temp_unit = "C"          # "C" for Celsius, "F" for Fahrenheit
 should_print = true      # print sensor data to serial console
+print_in_csv_format = true  # print serial data in csv format
 
 [intervals]
 sensor = 5.0             # seconds between sensor reads

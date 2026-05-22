@@ -28,7 +28,8 @@ class AirQualitySensor:
         self.button = Button()
         self.sd_logger = SDLogger(i2c, led,
                                    should_print=get(self.cfg, "display.should_print", True),
-                                   temp_unit=get(self.cfg, "display.temp_unit", "C"))
+                                   temp_unit=get(self.cfg, "display.temp_unit", "C"),
+                                  print_in_csv_format = get(self.cfg, "display.print_in_csv_format", False))
 
         # Initialize sensors
         self.co2_sensor = SCD4X(i2c) # CO2 / T / RH: SCD4x
@@ -62,8 +63,10 @@ class AirQualitySensor:
         # Indicate initialization is complete and system is ready
         self.sd_logger.log_info(msg="System initialized and ready.", color='magenta')
 
+
     def __enter__(self):
         return self
+
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.safe_shutdown()
@@ -74,6 +77,7 @@ class AirQualitySensor:
         self.sd_logger.log_info("Safe shutdown initiated.")
         self.sd_logger.unmount()
         self._shutdown = True  # Set shutdown flag
+
 
     async def read_sensors(self) -> None:
         """
@@ -167,6 +171,7 @@ class AirQualitySensor:
 
             await asyncio.sleep(self.print_interval)  # Wait for the next logging interval
 
+
     async def log_data(self) -> None:
         """
         Logs data if self._logging is True.
@@ -178,6 +183,7 @@ class AirQualitySensor:
                                         self.voc_index, self.pm)
 
             await asyncio.sleep(self.log_interval)  # Wait for the next logging interval
+
 
     async def monitor_button(self) -> None:
         """
@@ -203,6 +209,7 @@ class AirQualitySensor:
                 raise KeyboardInterrupt("Button held for safe shutdown.")
 
             await asyncio.sleep(0.01)
+
 
     async def run(self) -> None:
         """
