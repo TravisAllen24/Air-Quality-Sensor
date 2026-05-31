@@ -4,7 +4,6 @@ import asyncio
 
 from adafruit_scd4x import SCD4X # type: ignore
 from adafruit_sht4x import SHT4x # type: ignore
-from adafruit_sgp40 import SGP40 # type: ignore
 from adafruit_sgp41 import SGP41 # type: ignore
 from adafruit_pm25.i2c import PM25_I2C # type: ignore
 
@@ -35,7 +34,7 @@ class AirQualitySensor:
         self.co2_sensor = SCD4X(i2c) # CO2 / T / RH: SCD4x
         self.co2_sensor.start_periodic_measurement()
         self.temp_humidity_sensor = SHT4x(i2c) # Temp / RH: SHT4x
-        self.voc_sensor = SGP40(i2c) # VOC: SGP40
+        self.gas_sensor = SGP41(i2c) # VOC/NOx: SGP41
         self.pm_sensor = PM25_I2C(i2c, reset_pin=None) # PM: PMSA003I via adafruit_pm25 (I2C)
 
         # Initialize sensor values
@@ -45,6 +44,8 @@ class AirQualitySensor:
         self.humidity_value: float|None = None
         self.voc_raw: int|None = None
         self.voc_index: int|None = None
+        self.nox_raw: int|None = None
+        self.nox_index: int|None = None
         self.pm: dict|None = None
 
         # Settings
@@ -112,11 +113,12 @@ class AirQualitySensor:
                 self.sd_logger.log_info(msg=f"Error reading temperature/humidity sensor: {e}", color='red')
 
             try:
-                # SGP40 raw VOC reading
-                self.voc_raw = self.voc_sensor.measure_raw(self.temp_value, self.humidity_value)
+                # SGP41 raw VOC & NOx reading
+                self.voc_raw, self.nox_raw = self.gas_sensor.measure_raw(self.temp_value, self.humidity_value)
             except (OSError, RuntimeError) as e:
                 self.voc_raw = None
-                self.sd_logger.log_info(msg=f"Error reading VOC sensor: {e}", color='red')
+                self.nox_raw = None
+                self.sd_logger.log_info(msg=f"Error reading VOC/NOx sensor: {e}", color='red')
 
             try:
                 # PM25 dict
@@ -138,17 +140,19 @@ class AirQualitySensor:
             await asyncio.sleep(self.sensor_interval)  # Yield to event loop, check button frequently
 
 
-    async def read_voc_index(self) -> None:
+    async def read_voc_nox_index(self) -> None:
         """
-        Reads voc index from voc sensor.
+        Reads voc and nox indices from gas sensor.
         Returns self.voc_index (int or None): Calculated VOC Index, or None if read failed
+        Returns self.nox_index (int or None): Calculated NOx Index, or None if read failed
         """
         while not self._shutdown:
             try:
-                self.voc_index = self.voc_sensor.measure_index(self.temp_value, self.humidity_value)
+                self.voc_index, self.nox_index = self.gas_sensor.measure_index(self.temp_value, self.humidity_value)
             except (OSError, RuntimeError) as e:
                 self.voc_index = None
-                self.sd_logger.log_info(msg=f"Error reading VOC index: {e}", color='red')
+                self.nox_index = None
+                self.sd_logger.log_info(msg=f"Error reading VOC/NOx indices: {e}", color='red')
             await asyncio.sleep(self.voc_index_interval)
 
 
@@ -158,14 +162,16 @@ class AirQualitySensor:
         """
         while not self._shutdown:
             self.sd_logger.print_sensor_data(
-                self.co2_value, self.temp_value, self.humidity_value,
-                self.dew_point, self.voc_raw, self.voc_index,
+                self.temp_value, self.humidity_value,
+                self.dew_point, self.co2_value,
+                self.voc_raw, self.voc_index,
+                self.nox_raw, self.nox_index,
                 self.pm10, self.pm25, self.pm100
             )
 
             if not self._logging:
                 air_score_color = calculate_air_score_color(self.co2_value, self.temp_value,
-                                                self.humidity_value, self.voc_index, self.pm)
+                                                self.humidity_value, self.voc_index, self.nox_index, self.pm)
 
                 self.sd_logger.led.set_color(air_score_color)
 
@@ -180,7 +186,7 @@ class AirQualitySensor:
             if self._logging:
                 self.sd_logger.log_data(self.co2_value, self.temp_value,
                                         self.humidity_value, self.voc_raw,
-                                        self.voc_index, self.pm)
+                                        self.voc_index, self.nox_raw, self.nox_index, self.pm)
 
             await asyncio.sleep(self.log_interval)  # Wait for the next logging interval
 
@@ -217,7 +223,7 @@ class AirQualitySensor:
         """
         await asyncio.gather(
             self.read_sensors(),
-            self.read_voc_index(),
+            self.read_voc_nox_index(),
             self.print_data(),
             self.log_data(),
             self.monitor_button(),

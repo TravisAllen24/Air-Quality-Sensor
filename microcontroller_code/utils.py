@@ -101,6 +101,23 @@ def voc_score(voc_index: int|None) -> float:
         return 90.0 + min((voc_index - 500) / 500 * 10.0, 10.0)
 
 
+def nox_score(nox_index: int|None) -> float:
+    """NOx index hazard score: 0 (good) to 100 (hazardous)"""
+    if nox_index is None:
+        nox_index = 0
+    # SGP41: 0-100 good, 100-200 moderate, 200-400 bad, >400 hazardous
+    if nox_index <= 100:
+        return 0.0
+    elif nox_index <= 200:
+        return (nox_index - 100) / 100 * 30.0
+    elif nox_index <= 400:
+        return 30.0 + (nox_index - 200) / 200 * 40.0
+    elif nox_index <= 500:
+        return 70.0 + (nox_index - 400) / 100 * 20.0
+    else:
+        return 90.0 + min((nox_index - 500) / 500 * 10.0, 10.0)
+
+
 def temp_score(temp_c: float|None) -> float:
     """Temperature comfort penalty: 0 (ideal) to 100 (extreme)"""
     if temp_c is None:
@@ -151,7 +168,7 @@ def rh_score(rh: float|None) -> float:
         return 80.0 + min((rh - 98.0) / 2.0 * 20.0, 20.0)  # up to 100
 
 
-def calculate_air_score(co2: int|None, temp_c: float|None, rh: float|None, voc_index: int|None, pm:dict|None) -> float:
+def calculate_air_score(co2: int|None, temp_c: float|None, rh: float|None, voc_index: int|None, nox_index: int|None, pm:dict|None) -> float:
     """
     Air Quality/Health Score: 0 (excellent) → 100 (hazardous)
     - If any hazard is high, the score is high (worst dominates)
@@ -161,10 +178,11 @@ def calculate_air_score(co2: int|None, temp_c: float|None, rh: float|None, voc_i
     s_co2 = co2_score(co2)
     s_pm25 = pm25_score(pm)
     s_voc = voc_score(voc_index)
+    s_nox = nox_score(nox_index)
     s_temp = temp_score(temp_c)
     s_rh = rh_score(rh)
 
-    scores = [s_co2, s_pm25, s_voc, s_temp, s_rh]
+    scores = [s_co2, s_pm25, s_voc, s_nox, s_temp, s_rh]
     max_score = max(scores)
     mean_score = sum(scores) / len(scores)
     alpha = 0.8  # weight for max vs mean
@@ -182,7 +200,7 @@ def calculate_color_by_score(air_score):
 
     return (red, green, 0)
 
-def calculate_air_score_color(co2, temp_c, rh, voc_index, pm):
-    air_score = calculate_air_score(co2, temp_c, rh, voc_index, pm)
+def calculate_air_score_color(co2, temp_c, rh, voc_index, nox_index, pm):
+    air_score = calculate_air_score(co2, temp_c, rh, voc_index, nox_index, pm)
     return calculate_color_by_score(air_score)
 

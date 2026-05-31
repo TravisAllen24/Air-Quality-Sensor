@@ -77,7 +77,7 @@ class SDLogger:
 
 
     def log_data(self, co2_value: int|str|None, temp_value: float|str|None, humidity_value: float|str|None,
-                       voc_raw: int|str|None, voc_index: int|str|None, pm:dict|None):
+                       voc_raw: int|str|None, voc_index: int|str|None, nox_raw: int|str|None, nox_index: int|str|None, pm:dict|None):
         if not self.active or not self.file_path:
             return
         temp = self._convert_temp(temp_value)
@@ -85,30 +85,32 @@ class SDLogger:
         pm25 = pm.get("pm25 env") if pm else None
         pm100 = pm.get("pm100 env") if pm else None
         with open(self.file_path, "a") as f:
-            f.write(f"{self.clock.now},{co2_value},{temp},{humidity_value},{voc_raw},{voc_index},{pm10},{pm25},{pm100}\n")
+            f.write(f"{self.clock.now},{co2_value},{temp},{humidity_value},{voc_raw},{voc_index},{nox_raw},{nox_index},{pm10},{pm25},{pm100}\n")
 
         if self.led:
             self.led.blink_once('blue')
 
 
-    def print_sensor_data(self, co2, temp_c, humidity, dew_point_c, voc_raw, voc_index, pm10, pm25, pm100):
+    def print_sensor_data(self, temp_c, humidity, dew_point_c, co2, voc_raw, voc_index, nox_raw, nox_index, pm10, pm25, pm100):
         """Build and print a formatted sensor data message."""
         if not self.should_print:
             return
         temp = format_value(self._convert_temp(temp_c), 2)
         dp = format_value(self._convert_temp(dew_point_c), 2)
         if self.print_in_csv_format:
-            print(f"{self.clock.now},{co2},{temp},{dp},{humidity},{voc_raw},{voc_index},{pm10},{pm25},{pm100}")
+            print(f"{self.clock.now},{co2},{temp},{dp},{humidity},{voc_raw},{voc_index},{nox_raw},{nox_index},{pm10},{pm25},{pm100}")
 
         else:
             msg = ("T: {} {} RH: {}% -> DP: {} {} | CO2: {} ppm | "
-                   "VOC Raw: {} VOC Index: {} | PM10: {} PM2.5: {} PM1.0: {}".format(
+                   "VOC Raw: {} VOC Index: {} | NOx Raw: {} NOx Index: {} | PM10: {} PM2.5: {} PM1.0: {}".format(
                         temp, self.temp_unit,
                         format_value(humidity, 2),
                         dp, self.temp_unit,
                         format_value(co2),
                         format_value(voc_raw),
                         format_value(voc_index),
+                        format_value(nox_raw),
+                        format_value(nox_index),
                         format_value(pm100),
                         format_value(pm25),
                         format_value(pm10),
