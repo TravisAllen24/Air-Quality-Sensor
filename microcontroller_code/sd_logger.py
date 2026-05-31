@@ -60,7 +60,7 @@ class SDLogger:
         dt_sanitised = self.clock.now.replace(":", "-").replace(" ", "_")
         self.file_path = f"{self.mount_path}/log_{dt_sanitised}.csv"
         with open(self.file_path, "w") as f:
-            f.write("timestamp,co2 (ppm),temp ({u}),humidity (%),voc_raw,voc_index,nox_raw,nox_index,pm10 (ug/m3),pm25 (ug/m3),pm100 (ug/m3)\n".format(u=self.temp_unit))
+            f.write("timestamp,temp ({u}),humidity (%),co2 (ppm),voc_raw,voc_index,nox_raw,nox_index,pm10 (ug/m3),pm25 (ug/m3),pm100 (ug/m3)\n".format(u=self.temp_unit))
         self.active = True
 
 
@@ -85,7 +85,7 @@ class SDLogger:
         pm25 = pm.get("pm25 env") if pm else None
         pm100 = pm.get("pm100 env") if pm else None
         with open(self.file_path, "a") as f:
-            f.write(f"{self.clock.now},{co2_value},{temp},{humidity_value},{voc_raw},{voc_index},{nox_raw},{nox_index},{pm10},{pm25},{pm100}\n")
+            f.write(f"{self.clock.now},{temp},{humidity_value},{co2_value},{voc_raw},{voc_index},{nox_raw},{nox_index},{pm10},{pm25},{pm100}\n")
 
         if self.led:
             self.led.blink_once('blue')
@@ -98,7 +98,7 @@ class SDLogger:
         temp = format_value(self._convert_temp(temp_c), 2)
         dp = format_value(self._convert_temp(dew_point_c), 2)
         if self.print_in_csv_format:
-            print(f"{self.clock.now},{co2},{temp},{dp},{humidity},{voc_raw},{voc_index},{nox_raw},{nox_index},{pm10},{pm25},{pm100}")
+            print(f"{self.clock.now},{temp},{dp},{humidity},{co2},{voc_raw},{voc_index},{nox_raw},{nox_index},{pm10},{pm25},{pm100}")
 
         else:
             msg = ("T: {} {} RH: {}% -> DP: {} {} | CO2: {} ppm | "
