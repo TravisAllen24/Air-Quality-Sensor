@@ -60,7 +60,7 @@ class SDLogger:
         dt_sanitised = self.clock.now.replace(":", "-").replace(" ", "_")
         self.file_path = f"{self.mount_path}/log_{dt_sanitised}.csv"
         with open(self.file_path, "w") as f:
-            f.write("timestamp,co2 (ppm),temp ({u}),humidity (%),voc_raw,voc_index,pm10 (ug/m3),pm25 (ug/m3),pm100 (ug/m3)\n".format(u=self.temp_unit))
+            f.write("timestamp,co2 (ppm),temp ({u}),humidity (%),voc_raw,voc_index,nox_raw,nox_index,pm10 (ug/m3),pm25 (ug/m3),pm100 (ug/m3)\n".format(u=self.temp_unit))
         self.active = True
 
 

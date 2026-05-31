@@ -4,7 +4,7 @@ import asyncio
 
 from adafruit_scd4x import SCD4X # type: ignore
 from adafruit_sht4x import SHT4x # type: ignore
-from adafruit_sgp41 import SGP41 # type: ignore
+from adafruit_sgp41.sgp41 import SGP41 # type: ignore
 from adafruit_pm25.i2c import PM25_I2C # type: ignore
 
 from sd_logger import SDLogger
