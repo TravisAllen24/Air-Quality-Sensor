@@ -105,17 +105,7 @@ def nox_score(nox_index: int|None) -> float:
     """NOx index hazard score: 0 (good) to 100 (hazardous)"""
     if nox_index is None:
         nox_index = 0
-    # SGP41: 0-100 good, 100-200 moderate, 200-400 bad, >400 hazardous
-    if nox_index <= 100:
-        return 0.0
-    elif nox_index <= 200:
-        return (nox_index - 100) / 100 * 30.0
-    elif nox_index <= 400:
-        return 30.0 + (nox_index - 200) / 200 * 40.0
-    elif nox_index <= 500:
-        return 70.0 + (nox_index - 400) / 100 * 20.0
-    else:
-        return 90.0 + min((nox_index - 500) / 500 * 10.0, 10.0)
+    return nox_index / 500 * 100.0 if nox_index <= 500 else 100.0
 
 
 def temp_score(temp_c: float|None) -> float:
