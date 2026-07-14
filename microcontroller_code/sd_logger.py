@@ -52,7 +52,7 @@ class SDLogger:
             print(f"SDLogger log_info error: {e}")
 
         if color:
-            self.led.blink_once(color)
+            self.led.snake(color)
 
 
     def start_new_log(self):

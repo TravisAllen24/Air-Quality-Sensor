@@ -10,7 +10,7 @@ from adafruit_pm25.i2c import PM25_I2C # type: ignore
 from sd_logger import SDLogger
 from button import Button
 from i2c import I2C
-from utils import calculate_dew_point, calculate_air_score_color
+from utils import calculate_dew_point, calculate_air_score_color_mag_dict
 from aqs_settings import load_settings, get
 
 class AirQualitySensor:
@@ -62,7 +62,7 @@ class AirQualitySensor:
         self._shutdown: bool = False
 
         # Indicate initialization is complete and system is ready
-        self.sd_logger.log_info(msg="System initialized and ready.", color='magenta')
+        self.sd_logger.log_info(msg="System initialized and ready.", color='white')
 
 
     def __enter__(self):
@@ -170,10 +170,10 @@ class AirQualitySensor:
             )
 
             if not self._logging:
-                air_score_color = calculate_air_score_color(self.co2_value, self.temp_value,
+                air_score_dict = calculate_air_score_color_mag_dict(self.co2_value, self.temp_value,
                                                 self.humidity_value, self.voc_index, self.nox_index, self.pm)
 
-                self.sd_logger.led.set_color(air_score_color)
+                self.led.air_score(air_score_dict)
 
             await asyncio.sleep(self.print_interval)  # Wait for the next logging interval
 

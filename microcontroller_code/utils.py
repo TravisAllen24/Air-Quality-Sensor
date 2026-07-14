@@ -180,7 +180,8 @@ def calculate_air_score(co2: int|None, temp_c: float|None, rh: float|None, voc_i
     air_score = min(max(air_score, 0.0), 100.0)
     return round(air_score, 2)
 
-def calculate_color_by_score(air_score):
+
+def score_to_color(air_score):
     # Ensure air_score is within bounds
     air_score = max(0, min(100, air_score))
 
@@ -190,7 +191,27 @@ def calculate_color_by_score(air_score):
 
     return (red, green, 0)
 
-def calculate_air_score_color(co2, temp_c, rh, voc_index, nox_index, pm):
+
+def air_quality_color(co2, temp_c, rh, voc_index, nox_index, pm):
     air_score = calculate_air_score(co2, temp_c, rh, voc_index, nox_index, pm)
-    return calculate_color_by_score(air_score)
+    return score_to_color(air_score)
+
+
+def value_to_mag(value, min_value=0, max_value=100, num_pixels=7):
+    if value is None:
+        return 0
+    value = max(min_value, min(max_value, value))
+    return int((value - min_value) / (max_value - min_value) * num_pixels)
+
+
+def get_display_data(co2, temp_c, rh, voc_index, nox_index, pm):
+    air_score = calculate_air_score(co2, temp_c, rh, voc_index, nox_index, pm)
+
+    return {"temp": {"mag": value_to_mag(temp_c), "color": score_to_color(temp_c)},
+            "rh": {"mag": value_to_mag(rh), "color": score_to_color(rh)},
+            "co2": {"mag": value_to_mag(co2), "color": score_to_color(co2)},
+            "voc": {"mag": value_to_mag(voc_index), "color": score_to_color(voc_index)},
+            "nox": {"mag": value_to_mag(nox_index), "color": score_to_color(nox_index)},
+            "pm": {"mag": value_to_mag(pm), "color": score_to_color(pm)},
+            "air": {"mag": value_to_mag(air_score), "color": score_to_color(air_score)}}
 
