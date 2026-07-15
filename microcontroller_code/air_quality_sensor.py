@@ -79,6 +79,7 @@ class AirQualitySensor:
         self.sd_logger.debug("Safe shutdown initiated.")
         self.sd_logger.unmount()
         self._shutdown = True  # Set shutdown flag
+        self.led.shutdown_blink()
 
 
     async def read_sensors(self) -> None:
