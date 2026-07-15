@@ -37,7 +37,7 @@ class SDLogger:
         self.system_rtc.datetime = now
 
 
-    def log_info(self, msg: str, color: str|None = None):
+    def log_info(self, msg: str):
         """Log an info or error message to a separate log file on the SD card,
         and optionally print to console and blink LED."""
 
@@ -51,9 +51,16 @@ class SDLogger:
             # If logging fails, print to console as fallback
             print(f"SDLogger log_info error: {e}")
 
-        if color:
-            self.led.snake(color)
+    def debug(self, msg: str):
+        self.log_info(f"DEBUG: {msg}")
 
+    def warning(self, msg: str):
+        self.log_info(f"WARNING: {msg}")
+        self.led.warning_blink()
+
+    def error(self, msg: str):
+        self.log_info(f"ERROR: {msg}")
+        self.led.error_blink()
 
     def start_new_log(self):
         """Start a new log file with datetime in filename."""
@@ -63,10 +70,14 @@ class SDLogger:
             f.write("timestamp,temp ({u}),humidity (%),co2 (ppm),voc_raw,voc_index,nox_raw,nox_index,pm10 (ug/m3),pm25 (ug/m3),pm100 (ug/m3)\n".format(u=self.temp_unit))
         self.active = True
 
+        self.led.start_log_blink()
+
 
     def stop_log(self):
         self.active = False
         self.file_path = None
+
+        self.led.stop_log_blink()
 
 
     def _convert_temp(self, temp_c):
@@ -87,8 +98,7 @@ class SDLogger:
         with open(self.file_path, "a") as f:
             f.write(f"{self.clock.now},{temp},{humidity_value},{co2_value},{voc_raw},{voc_index},{nox_raw},{nox_index},{pm10},{pm25},{pm100}\n")
 
-        if self.led:
-            self.led.blink_once('blue')
+        self.led.log_data_blink()
 
 
     def print_sensor_data(self, temp_c, humidity, dew_point_c, co2, voc_raw, voc_index, nox_raw, nox_index, pm10, pm25, pm100):

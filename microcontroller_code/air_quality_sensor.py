@@ -10,7 +10,7 @@ from adafruit_pm25.i2c import PM25_I2C # type: ignore
 from sd_logger import SDLogger
 from button import Button
 from i2c import I2C
-from utils import calculate_dew_point, calculate_air_score_color_mag_dict
+from utils import calculate_dew_point, get_display_data
 from aqs_settings import load_settings, get
 
 class AirQualitySensor:
@@ -25,6 +25,7 @@ class AirQualitySensor:
         # Initialize the AirQuality class with button, RTC, and logger
         i2c = I2C()
         self.button = Button()
+        self.led = led
         self.sd_logger = SDLogger(i2c, led,
                                    should_print=get(self.cfg, "display.should_print", True),
                                    temp_unit=get(self.cfg, "display.temp_unit", "C"),
@@ -62,8 +63,8 @@ class AirQualitySensor:
         self._shutdown: bool = False
 
         # Indicate initialization is complete and system is ready
-        self.sd_logger.log_info(msg="System initialized and ready.", color='white')
-
+        self.sd_logger.debug(msg="System initialized and ready.")
+        self.led.startup_blink()
 
     def __enter__(self):
         return self
@@ -75,7 +76,7 @@ class AirQualitySensor:
 
     def safe_shutdown(self) -> None:
         """Perform safe shutdown actions: log, LED, and optionally power down hardware."""
-        self.sd_logger.log_info("Safe shutdown initiated.")
+        self.sd_logger.debug("Safe shutdown initiated.")
         self.sd_logger.unmount()
         self._shutdown = True  # Set shutdown flag
 
@@ -99,7 +100,7 @@ class AirQualitySensor:
                     self.co2_value = self.co2_sensor.CO2
             except (OSError, RuntimeError) as e:
                 self.co2_value = None
-                self.sd_logger.log_info(msg=f"Error reading CO2 sensor: {e}", color='red')
+                self.sd_logger.error(msg=f"Error reading CO2 sensor: {e}")
 
             try:
                 # SHT4x temp / RH
@@ -110,7 +111,7 @@ class AirQualitySensor:
             except (OSError, RuntimeError) as e:
                 self.temp_value = None
                 self.humidity_value = None
-                self.sd_logger.log_info(msg=f"Error reading temperature/humidity sensor: {e}", color='red')
+                self.sd_logger.error(msg=f"Error reading temperature/humidity sensor: {e}")
 
             try:
                 # SGP41 raw VOC & NOx reading
@@ -118,14 +119,14 @@ class AirQualitySensor:
             except (OSError, RuntimeError) as e:
                 self.voc_raw = None
                 self.nox_raw = None
-                self.sd_logger.log_info(msg=f"Error reading VOC/NOx sensor: {e}", color='red')
+                self.sd_logger.error(msg=f"Error reading VOC/NOx sensor: {e}")
 
             try:
                 # PM25 dict
                 self.pm = self.pm_sensor.read()
             except (OSError, RuntimeError) as e:
                 self.pm = None
-                self.sd_logger.log_info(msg=f"Error reading PM sensor: {e}", color='red')
+                self.sd_logger.error(msg=f"Error reading PM sensor: {e}")
 
             # Extract relevant PM values
             if self.pm:
@@ -152,7 +153,7 @@ class AirQualitySensor:
             except (OSError, RuntimeError) as e:
                 self.voc_index = None
                 self.nox_index = None
-                self.sd_logger.log_info(msg=f"Error reading VOC/NOx indices: {e}", color='red')
+                self.sd_logger.error(msg=f"Error reading VOC/NOx indices: {e}")
             await asyncio.sleep(self.voc_index_interval)
 
 
@@ -170,10 +171,10 @@ class AirQualitySensor:
             )
 
             if not self._logging:
-                air_score_dict = calculate_air_score_color_mag_dict(self.co2_value, self.temp_value,
+                air_score_dict = get_display_data(self.co2_value, self.temp_value,
                                                 self.humidity_value, self.voc_index, self.nox_index, self.pm)
 
-                self.led.air_score(air_score_dict)
+                self.led.show_air_score(air_score_dict)
 
             await asyncio.sleep(self.print_interval)  # Wait for the next logging interval
 
@@ -205,10 +206,10 @@ class AirQualitySensor:
                 if self._logging:
                     # Start new log file with RTC datetime
                     self.sd_logger.start_new_log()
-                    self.sd_logger.log_info(msg="Logging started.", color='blue')
+                    self.sd_logger.debug(msg="Logging started.")
                 else:
                     self.sd_logger.stop_log()
-                    self.sd_logger.log_info(msg="Logging stopped.", color='blue')
+                    self.sd_logger.debug(msg="Logging stopped.")
 
             # Safe shutdown only if held
             elif held_duration >= self.shutdown_hold:
