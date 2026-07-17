@@ -98,7 +98,7 @@ class SDLogger:
         temp = format_value(self._convert_temp(temp_c), 2)
         dp = format_value(self._convert_temp(dew_point_c), 2)
         if self.print_in_csv_format:
-            print(f"{self.clock.now},{temp},{humidity},{dp},{co2},{voc_raw},{voc_index},{nox_raw},{nox_index},{pm100},{pm25},{pm10}")
+            print(f"$AQS,{self.clock.now},{temp},{humidity},{dp},{co2},{voc_raw},{voc_index},{nox_raw},{nox_index},{pm100},{pm25},{pm10}")
 
         else:
             msg = ("T: {} {} RH: {}% -> DP: {} {} | CO2: {} ppm | "
