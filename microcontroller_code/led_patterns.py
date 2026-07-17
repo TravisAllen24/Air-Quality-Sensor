@@ -85,21 +85,9 @@ EXCLAMATION = [10,17,24,38]
 ⬛⬛⬜⬛⬜⬛⬛
 ⬛⬛⬛⬛⬛⬛⬛
 """
-WIFI = []
-
-# Helper for converting a grid docstring to a list of lit pixel indices
-def pattern_from_docstring(grid, on_char='⬜'):
-    """
-    Convert a triple-quoted 7x7 emoji grid docstring into a list of lit pixel indices.
-    Strips leading/trailing whitespace per line so indentation in source doesn't matter.
-    """
-    rows = [line.strip() for line in grid.strip().splitlines()]
-    flat = ''.join(rows)
-    assert len(flat) == 49, f"Expected 49 cells, got {len(flat)} — check row lengths"
-    return [i for i, ch in enumerate(flat) if ch == on_char]
+WIFI = [1, 2, 3, 4, 5, 7, 13, 16, 17, 18, 22, 26, 31, 37, 39]
 
 # Animations
-
 SNAKE = [
     [0, 1, 2, 3, 4], [1, 2, 3, 4, 5], [2, 3, 4, 5, 6], [3, 4, 5, 6, 13],
     [4, 5, 6, 13, 20], [5, 6, 13, 20, 27], [6, 13, 20, 27, 34], [13, 20, 27, 34, 41],
@@ -122,3 +110,15 @@ CONTRACTING_SQUARE = [
     [16, 17, 18, 23, 25, 30, 31, 32],
     [24],
 ]
+
+
+# Helper for converting a grid docstring to a list of lit pixel indices
+def pattern_from_docstring(grid, on_char='⬜'):
+    """
+    Convert a triple-quoted 7x7 emoji grid docstring into a list of lit pixel indices.
+    Strips leading/trailing whitespace per line so indentation in source doesn't matter.
+    """
+    rows = [line.strip() for line in grid.strip().splitlines()]
+    flat = ''.join(rows)
+    assert len(flat) == 49, f"Expected 49 cells, got {len(flat)} — check row lengths"
+    return [i for i, ch in enumerate(flat) if ch == on_char]
