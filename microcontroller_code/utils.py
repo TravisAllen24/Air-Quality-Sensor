@@ -43,158 +43,89 @@ def calculate_dew_point(temp_c: float|None, rh: float|None) -> float|None:
     except Exception:
         return None
 
-
-# Individual scoring functions for each variable
-def co2_score(co2: int|None) -> float:
-    """CO2 hazard score: 0 (good) to 100 (hazardous)"""
-    if co2 is None:
-        co2 = 400
-    # EPA/ASHRAE: >2000 ppm is hazardous
-    if co2 <= 800:
-        return 0.0
-    elif co2 <= 1200:
-        return (co2 - 800) / 400 * 20.0
-    elif co2 <= 2000:
-        return 20.0 + (co2 - 1200) / 800 * 40.0
-    elif co2 <= 5000:
-        return 60.0 + (co2 - 2000) / 3000 * 40.0
-    else:
-        return 100.0
+def piecewise_linear(x: float, points: list[tuple[float, float]]) -> float:
+    """
+    Interpolate x along `points`, a list of (x, y) tuples sorted by x ascending.
+    Values outside the range clamp to the nearest endpoint's y.
+    """
+    if x <= points[0][0]:
+        return float(points[0][1])
+    if x >= points[-1][0]:
+        return float(points[-1][1])
+    for (x0, y0), (x1, y1) in zip(points, points[1:]):
+        if x0 <= x <= x1:
+            return y0 + (x - x0) / (x1 - x0) * (y1 - y0)
+    raise ValueError(f"x={x} not covered by points={points}")
 
 
-def pm25_score(pm: dict|None) -> float:
-    """PM2.5 hazard score: 0 (good) to 100 (hazardous)"""
-    pm25 = 0
-    if pm and ("pm25 standard" in pm):
-        pm25 = pm["pm25 standard"]
-    elif pm and ("pm25 env" in pm):
-        pm25 = pm["pm25 env"]
-    # EPA AQI: >250 is hazardous
-    if pm25 <= 12:
-        return 0.0
-    elif pm25 <= 35:
-        return (pm25 - 12) / 23 * 30.0
-    elif pm25 <= 55:
-        return 30.0 + (pm25 - 35) / 20 * 20.0
-    elif pm25 <= 150:
-        return 50.0 + (pm25 - 55) / 95 * 30.0
-    elif pm25 <= 250:
-        return 80.0 + (pm25 - 150) / 100 * 15.0
-    else:
-        return 95.0 + min((pm25 - 250) / 250 * 5.0, 5.0)
+CO2_CURVE  = [(800, 100), (1200, 80), (2000, 40), (5000, 0)]
+PM25_CURVE = [(12, 100), (35, 70), (55, 50), (150, 20), (250, 5), (500, 0)]
+VOC_CURVE  = [(100, 100), (200, 70), (400, 30), (500, 10), (1000, 0)]
+NOX_CURVE  = [(0, 100), (500, 0)]
+
+TEMP_LOW  = [(-5, 0), (5, 20), (15, 50), (18, 80), (21, 100)]
+TEMP_HIGH = [(24, 100), (27, 80), (30, 50), (40, 20), (50, 0)]
+RH_LOW    = [(0, 0), (2, 20), (10, 50), (20, 80), (30, 100)]
+RH_HIGH   = [(60, 100), (70, 80), (90, 50), (98, 20), (100, 0)]
 
 
-def voc_score(voc_index: int|None) -> float:
-    """VOC index hazard score: 0 (good) to 100 (hazardous)"""
-    if voc_index is None:
-        voc_index = 0
-    # SGP40: 0-100 good, 100-200 moderate, 200-400 bad, >400 hazardous
-    if voc_index <= 100:
-        return 0.0
-    elif voc_index <= 200:
-        return (voc_index - 100) / 100 * 30.0
-    elif voc_index <= 400:
-        return 30.0 + (voc_index - 200) / 200 * 40.0
-    elif voc_index <= 500:
-        return 70.0 + (voc_index - 400) / 100 * 20.0
-    else:
-        return 90.0 + min((voc_index - 500) / 500 * 10.0, 10.0)
+def co2_score(co2: int | None) -> float:
+    """CO2 quality score: 100 (good) to 0 (hazardous)."""
+    return piecewise_linear(co2 if co2 is not None else 400, CO2_CURVE)
 
 
-def nox_score(nox_index: int|None) -> float:
-    """NOx index hazard score: 0 (good) to 100 (hazardous)"""
-    if nox_index is None:
-        nox_index = 0
-    return nox_index / 500 * 100.0 if nox_index <= 500 else 100.0
+def pm25_score(pm: dict | None) -> float:
+    """PM2.5 quality score: 100 (good) to 0 (hazardous)."""
+    pm25 = pm.get("pm25 standard", pm.get("pm25 env", 0)) if pm else 0
+    return piecewise_linear(pm25, PM25_CURVE)
 
 
-def temp_score(temp_c: float|None) -> float:
-    """Temperature comfort penalty: 0 (ideal) to 100 (extreme)"""
+def voc_score(voc_index: int | None) -> float:
+    """VOC quality score: 100 (good) to 0 (hazardous)."""
+    return piecewise_linear(voc_index if voc_index is not None else 0, VOC_CURVE)
+
+
+def nox_score(nox_index: int | None) -> float:
+    """NOx quality score: 100 (good) to 0 (hazardous)."""
+    return piecewise_linear(nox_index if nox_index is not None else 0, NOX_CURVE)
+
+
+def temp_score(temp_c: float | None) -> float:
+    """Temperature comfort score: 100 (ideal) to 0 (extreme)."""
     if temp_c is None:
         temp_c = 23.0
-    # 21-24C ideal, 18-27 mild, <15 or >30 dangerous, <5 or >40 life-threatening
-    if 21.0 <= temp_c <= 24.0:
-        return 0.0
-    elif 18.0 <= temp_c < 21.0:
-        return (21.0 - temp_c) / 3.0 * 20.0
-    elif 24.0 < temp_c <= 27.0:
-        return (temp_c - 24.0) / 3.0 * 20.0
-    elif 15.0 <= temp_c < 18.0:
-        return 20.0 + (18.0 - temp_c) / 3.0 * 30.0
-    elif 27.0 < temp_c <= 30.0:
-        return 20.0 + (temp_c - 27.0) / 3.0 * 30.0
-    elif 5.0 <= temp_c < 15.0:
-        return 50.0 + (15.0 - temp_c) / 10.0 * 30.0  # up to 80
-    elif 30.0 < temp_c <= 40.0:
-        return 50.0 + (temp_c - 30.0) / 10.0 * 30.0  # up to 80
-    elif temp_c < 5.0:
-        return 80.0 + min((5.0 - temp_c) / 10.0 * 20.0, 20.0)  # up to 100
-    else:  # temp_c > 40.0
-        return 80.0 + min((temp_c - 40.0) / 10.0 * 20.0, 20.0)  # up to 100
+    if temp_c <= 21.0:
+        return piecewise_linear(temp_c, TEMP_LOW)
+    if temp_c >= 24.0:
+        return piecewise_linear(temp_c, TEMP_HIGH)
+    return 100.0
 
 
-def rh_score(rh: float|None) -> float:
-    """Humidity comfort penalty: 0 (ideal) to 100 (extreme)"""
+def rh_score(rh: float | None) -> float:
+    """Humidity comfort score: 100 (ideal) to 0 (extreme)."""
     if rh is None:
         rh = 45.0
-    # 30-60% ideal, 20-30/60-70 mild, <20/>70 strong, <10/>90 dangerous, <2/>98 life-threatening
-    if 30.0 <= rh <= 60.0:
-        return 0.0
-    elif 20.0 <= rh < 30.0:
-        return (30.0 - rh) / 10.0 * 20.0
-    elif 60.0 < rh <= 70.0:
-        return (rh - 60.0) / 10.0 * 20.0
-    elif 10.0 <= rh < 20.0:
-        return 20.0 + (20.0 - rh) / 10.0 * 30.0  # up to 50
-    elif 70.0 < rh <= 90.0:
-        return 20.0 + (rh - 70.0) / 20.0 * 30.0  # up to 50
-    elif 2.0 <= rh < 10.0:
-        return 50.0 + (10.0 - rh) / 8.0 * 30.0  # up to 80
-    elif 90.0 < rh <= 98.0:
-        return 50.0 + (rh - 90.0) / 8.0 * 30.0  # up to 80
-    elif rh < 2.0:
-        return 80.0 + min((2.0 - rh) / 2.0 * 20.0, 20.0)  # up to 100
-    else:  # rh > 98.0
-        return 80.0 + min((rh - 98.0) / 2.0 * 20.0, 20.0)  # up to 100
+    if rh <= 30.0:
+        return piecewise_linear(rh, RH_LOW)
+    if rh >= 60.0:
+        return piecewise_linear(rh, RH_HIGH)
+    return 100.0
 
 
-def calculate_air_score(co2: int|None, temp_c: float|None, rh: float|None, voc_index: int|None, nox_index: int|None, pm:dict|None) -> float:
-    """
-    Air Quality/Health Score: 0 (excellent) → 100 (hazardous)
-    - If any hazard is high, the score is high (worst dominates)
-    - Comfort factors (temp, rh) are included but do not mask hazards
-    """
-    # Individual hazard scores
-    s_co2 = co2_score(co2)
-    s_pm25 = pm25_score(pm)
-    s_voc = voc_score(voc_index)
-    s_nox = nox_score(nox_index)
-    s_temp = temp_score(temp_c)
-    s_rh = rh_score(rh)
-
-    scores = [s_co2, s_pm25, s_voc, s_nox, s_temp, s_rh]
-    max_score = max(scores)
-    mean_score = sum(scores) / len(scores)
-    alpha = 0.8  # weight for max vs mean
-    air_score = alpha * max_score + (1 - alpha) * mean_score
-    air_score = min(max(air_score, 0.0), 100.0)
-    return round(air_score, 2)
+def air_quality_score(scores, alpha=0.8):
+    """Blend quality scores so the worst factor dominates but all factors contribute."""
+    worst = min(scores)
+    average = sum(scores) / len(scores)
+    blended = alpha * worst + (1 - alpha) * average
+    return round(min(max(blended, 0.0), 100.0), 2)
 
 
-def score_to_color(air_score):
-    # Ensure air_score is within bounds
-    air_score = max(0, min(100, air_score))
-
-    # Calculate the red and green components for the gradient
-    red = int((air_score / 100) * 255)
-    green = int((1 - air_score / 100) * 255)
-
+def score_to_color(score):
+    """Map a 100 (good) → 0 (bad) score to a green → red gradient."""
+    score = max(0, min(100, score))
+    red = int((1 - score / 100) * 255)
+    green = int((score / 100) * 255)
     return (red, green, 0)
-
-
-def air_quality_color(co2, temp_c, rh, voc_index, nox_index, pm):
-    air_score = calculate_air_score(co2, temp_c, rh, voc_index, nox_index, pm)
-    return score_to_color(air_score)
 
 
 def value_to_mag(value, min_value=0, max_value=100, num_pixels=7):
@@ -205,13 +136,28 @@ def value_to_mag(value, min_value=0, max_value=100, num_pixels=7):
 
 
 def get_display_data(co2, temp_c, rh, voc_index, nox_index, pm):
-    air_score = calculate_air_score(co2, temp_c, rh, voc_index, nox_index, pm)
+    quality = {
+        "temp": temp_score(temp_c),
+        "rh": rh_score(rh),
+        "co2": co2_score(co2),
+        "voc": voc_score(voc_index),
+        "nox": nox_score(nox_index),
+        "pm": pm25_score(pm),
+    }
+    quality["air"] = air_quality_score(list(quality.values()))
 
-    return {"temp": {"mag": value_to_mag(temp_c), "color": score_to_color(temp_c)},
-            "rh": {"mag": value_to_mag(rh), "color": score_to_color(rh)},
-            "co2": {"mag": value_to_mag(co2), "color": score_to_color(co2)},
-            "voc": {"mag": value_to_mag(voc_index), "color": score_to_color(voc_index)},
-            "nox": {"mag": value_to_mag(nox_index), "color": score_to_color(nox_index)},
-            "pm": {"mag": value_to_mag(pm), "color": score_to_color(pm)},
-            "air": {"mag": value_to_mag(air_score), "color": score_to_color(air_score)}}
+    return {
+        key: {"mag": value_to_mag(score), "color": score_to_color(score)}
+        for key, score in quality.items()
+    }
 
+
+def power_guarded(fallback_duration=0.25, fallback_blinks=1):
+    def decorator(func):
+        def wrapper(self, *args, **kwargs):
+            if self._pixel_power.value:
+                return func(self, *args, **kwargs)
+            else:
+                self.blue_blink(duration=fallback_duration, blinks=fallback_blinks)
+        return wrapper
+    return decorator

@@ -3,10 +3,8 @@ import board # type: ignore
 import time
 
 class Button:
-    def __init__(self, pin=board.BUTTON, pull=digitalio.Pull.UP):
-        self._btn = digitalio.DigitalInOut(pin)
-        self._btn.direction = digitalio.Direction.INPUT
-        self._btn.pull = pull
+    def __init__(self, btn_pin):
+        self._btn = btn_pin
         self._last = self._btn.value
         self._press_start = None
         self._hold_time = 0.0

@@ -7,9 +7,7 @@ from adafruit_sht4x import SHT4x # type: ignore
 from adafruit_sgp41.sgp41 import SGP41 # type: ignore
 from adafruit_pm25.i2c import PM25_I2C # type: ignore
 
-from sd_logger import SDLogger
-from button import Button
-from i2c import I2C
+from hardware.button import Button
 from utils import calculate_dew_point, get_display_data
 from aqs_settings import load_settings, get
 
@@ -18,19 +16,15 @@ class AirQualitySensor:
     AirQuality class that takes sensor measurements and handles all high level processes.
     """
 
-    def __init__(self, led) -> None:
+    def __init__(self, led, i2c, sd_logger, button) -> None:
         # Load settings from TOML
         self.cfg = load_settings()
 
         # Initialize the AirQuality class with button, RTC, and logger
-        i2c = I2C()
-        self.button = Button()
+        self.i2c = i2c
         self.led = led
-        self.sd_logger = SDLogger(i2c, led,
-                                   should_print=get(self.cfg, "display.should_print", True),
-                                   temp_unit=get(self.cfg, "display.temp_unit", "C"),
-                                  print_in_csv_format = get(self.cfg, "display.print_in_csv_format", False))
-
+        self.sd_logger = sd_logger
+        self.button = button
         # Initialize sensors
         self.co2_sensor = SCD4X(i2c) # CO2 / T / RH: SCD4x
         self.co2_sensor.start_periodic_measurement()
@@ -173,9 +167,9 @@ class AirQualitySensor:
 
             if not self._logging:
                 air_score_dict = get_display_data(self.co2_value, self.temp_value,
-                                                self.humidity_value, self.voc_index, self.nox_index, self.pm)
+                                              self.humidity_value, self.voc_index, self.nox_index, self.pm)
 
-                self.led.show_air_score(air_score_dict)
+                self.led.show_air_quality_data(air_score_dict)
 
             await asyncio.sleep(self.print_interval)  # Wait for the next logging interval
 
@@ -219,6 +213,19 @@ class AirQualitySensor:
             await asyncio.sleep(0.01)
 
 
+    async def sync_clock(self) -> None:
+        """
+        Periodically syncs the system clock with the RTC to ensure accurate timestamps.
+        """
+        while not self._shutdown:
+            try:
+                self.sd_logger.clock.sync()
+                self.sd_logger.debug(msg="System clock synced with RTC.")
+            except Exception as e:
+                self.sd_logger.error(msg=f"Error syncing system clock: {e}")
+            await asyncio.sleep(60*60*24)  # Sync every 24 hours
+
+
     async def run(self) -> None:
         """
         Main function that runs all async functions concurrently.
@@ -229,4 +236,5 @@ class AirQualitySensor:
             self.print_data(),
             self.log_data(),
             self.monitor_button(),
+            self.sync_clock()  # Ensure clock is synced periodically
         )

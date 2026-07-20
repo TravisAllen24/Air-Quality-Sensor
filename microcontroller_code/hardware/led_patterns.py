@@ -1,3 +1,21 @@
+# Define a color mapping for common color names
+OFF = (0, 0, 0)
+
+COLOR_MAPPING = {
+    "red": (255, 0, 0),
+    "green": (0, 255, 0),
+    "blue": (0, 0, 255),
+    "yellow": (255, 255, 0),
+    "cyan": (0, 255, 255),
+    "magenta": (255, 0, 255),
+    "white": (255, 255, 255),
+    "orange": (255, 165, 0),
+    "off": OFF,
+}
+
+ROW_ORDER = ["temp", "rh", "co2", "voc", "nox", "pm", "air"]
+
+
 # Patterns for LED animations
 """
 ⬛⬜⬜⬜⬜⬜⬛
