@@ -105,6 +105,17 @@ EXCLAMATION = [10,17,24,38]
 """
 WIFI = [1, 2, 3, 4, 5, 7, 13, 16, 17, 18, 22, 26, 31, 37, 39]
 
+"""
+⬛⬜⬜⬛⬜⬜⬛
+⬜⬜⬜⬜⬜⬜⬜
+⬜⬜⬜⬜⬜⬜⬜
+⬜⬜⬜⬜⬜⬜⬜
+⬛⬜⬜⬜⬜⬜⬛
+⬛⬛⬜⬜⬜⬛⬛
+⬛⬛⬛⬜⬛⬛⬛
+"""
+HEART = [1, 2, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 29, 30, 31, 32, 33, 37, 38, 39, 45]
+
 # Animations
 SNAKE = [
     [0, 1, 2, 3, 4], [1, 2, 3, 4, 5], [2, 3, 4, 5, 6], [3, 4, 5, 6, 13],
@@ -122,13 +133,8 @@ EXPANDING_SQUARE = [
     [0, 1, 2, 3, 4, 5, 6, 7, 13, 14, 20, 21, 27, 28, 34, 35, 41, 42, 43, 44, 45, 46, 47, 48],
 ]
 
-CONTRACTING_SQUARE = [
-    [0, 1, 2, 3, 4, 5, 6, 7, 13, 14, 20, 21, 27, 28, 34, 35, 41, 42, 43, 44, 45, 46, 47, 48],
-    [8, 9, 10, 11, 12, 15, 19, 22, 26, 29, 33, 36, 37, 38, 39, 40],
-    [16, 17, 18, 23, 25, 30, 31, 32],
-    [24],
-]
 
+SPIRAL = []
 
 # Helper for converting a grid docstring to a list of lit pixel indices
 def pattern_from_docstring(grid, on_char='⬜'):
@@ -140,3 +146,4 @@ def pattern_from_docstring(grid, on_char='⬜'):
     flat = ''.join(rows)
     assert len(flat) == 49, f"Expected 49 cells, got {len(flat)} — check row lengths"
     return [i for i, ch in enumerate(flat) if ch == on_char]
+

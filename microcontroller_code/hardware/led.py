@@ -3,7 +3,7 @@ from digitalio import DigitalInOut, Direction # type: ignore
 import neopixel # type: ignore
 import board # type: ignore
 
-from hardware.led_patterns import ROW_ORDER, COLOR_MAPPING, OFF, SNAKE, EXPANDING_SQUARE, CONTRACTING_SQUARE, EXCLAMATION
+from hardware.led_patterns import ROW_ORDER, COLOR_MAPPING, OFF, SNAKE, EXPANDING_SQUARE, EXCLAMATION
 from aqs_settings import load_settings, get
 from utils import power_guarded
 
@@ -22,22 +22,26 @@ class LED:
     # Individual pixel methods
     def on(self, color):
         led_color = COLOR_MAPPING.get(color, OFF)
-        self._pixel = led_color
+        self._pixel.fill(led_color)
+        self._pixel.show()
 
     def off(self):
-        self._pixel = OFF
+        self._pixel.fill(OFF)
+        self._pixel.show()
 
     def blink_once(self, color, duration=0.25, blinks=1):
         led_color = COLOR_MAPPING.get(color, OFF)
-        self._pixel = led_color
+        self._pixel.fill(led_color)
         sleep(duration)
-        self._pixel = OFF
+        self._pixel.fill(OFF)
 
     def blue_on(self):
         self._blue_led.value = True
+        self._pixel.show()
 
     def blue_off(self):
         self._blue_led.value = False
+        self._pixel.show()
 
     def blue_blink(self, duration=0.25, blinks=1):
         for _ in range(blinks):
@@ -51,12 +55,12 @@ class LED:
     def all_on(self, color):
         led_color = COLOR_MAPPING.get(color, OFF)
         self._matrix.fill(led_color)
-        self._pixel = led_color
-    
+        self._pixel.fill(led_color)
+
 
     def all_off(self):
         self._matrix.fill(OFF)
-        self._pixel = OFF
+        self._pixel.fill(OFF)
 
 
     def all_blink_once(self, color = 'red', duration = 0.25):
@@ -74,8 +78,9 @@ class LED:
                 self._matrix[i] = led_color
             else:
                 self._matrix[i] = OFF
-                
-        self._pixel = led_color
+
+        self._matrix.show()
+
 
     def blink_pattern(self, pattern: list[int], color, duration = 0.25):
         self.show_pattern(pattern, color)
@@ -86,7 +91,7 @@ class LED:
         for frame in pattern:
             self.show_pattern(frame, color)
             sleep(delay)
-   
+
     def spiral(self, color, delay):
         pass
 
@@ -101,7 +106,9 @@ class LED:
             row_start = row_index * num_cols
             for offset in range(mag):
                 self._matrix[row_start + offset] = color
-             
+
+        self._matrix.show()
+
 
     # Wrappers
     @power_guarded(fallback_blinks=5, fallback_duration=.1)
@@ -134,9 +141,5 @@ class LED:
     def stop_log_blink(self, color = 'blue', delay = 0.05):
         self.animate_pattern(CONTRACTING_SQUARE, color, delay)
 
-    @power_guarded()
     def log_data_blink(self, color = 'blue', delay = 0.05):
         self.animate_pattern(SNAKE, color, delay)
-
-
-

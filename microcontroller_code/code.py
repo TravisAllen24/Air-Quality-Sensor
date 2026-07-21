@@ -21,6 +21,8 @@ def main():
     blue_led = feather.blue_led
     btn_pin = feather.button_pin
 
+    feather.startup_message()
+
     # Initialize Objects
     led = LED(brightness=get(cfg, "led.brightness", 0.2), matrix=matrix, pixel=pixel, blue_led=blue_led)
     sd_logger = SDLogger(i2c=i2c, led=led, internal_rtc=internal_rtc, should_print=get(cfg, "sd_logger.should_print", True), print_in_csv_format=get(cfg, "sd_logger.print_in_csv_format", False), temp_unit=get(cfg, "sd_logger.temp_unit", "C"))
