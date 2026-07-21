@@ -1,12 +1,12 @@
-from digitalio import DigitalInOut, Direction
-from analogio import AnalogIn
-from os import statvfs
-import digitalio
-import neopixel
-import board
-import busio
-import rtc
-import gc
+from digitalio import DigitalInOut, Direction  # type: ignore
+from analogio import AnalogIn  # type: ignore
+from os import statvfs  # type: ignore
+import digitalio  # type: ignore
+import neopixel  # type: ignore
+import board  # type: ignore
+import busio  # type: ignore
+import rtc  # type: ignore
+import gc  # type: ignore
 
 class FeatherS3Neo:
     def __init__(self):
@@ -127,7 +127,7 @@ class FeatherS3Neo:
         # Show available memory
         print("Memory Info - gc.mem_free()")
         print("---------------------------")
-        print(f"{gc.mem_free()/1024/1024} Megabytes\n")
+        print(f"{gc.mem_free()/1024/1024} Megabytes\n")  # type: ignore
 
         # Show flash size
         # CircuitPython reserves a bunch of flash space for other features like OTA updates.

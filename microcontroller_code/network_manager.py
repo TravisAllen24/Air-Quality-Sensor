@@ -1,5 +1,5 @@
-import wifi
-import socketpool
+import wifi # type: ignore
+import socketpool # type: ignore
 
 class WifiManager:
     def __init__(self, ssid, password):

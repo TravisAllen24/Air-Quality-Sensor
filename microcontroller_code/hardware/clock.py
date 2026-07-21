@@ -1,5 +1,4 @@
 from adafruit_pcf8523.pcf8523 import PCF8523 # type: ignore
-import rtc # type: ignore
 
 from utils import format_rtc_dt
 

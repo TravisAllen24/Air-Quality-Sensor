@@ -7,24 +7,26 @@ from adafruit_sht4x import SHT4x # type: ignore
 from adafruit_sgp41.sgp41 import SGP41 # type: ignore
 from adafruit_pm25.i2c import PM25_I2C # type: ignore
 
-from hardware.button import Button
 from utils import calculate_dew_point, get_display_data
 from aqs_settings import load_settings, get
+from aqs_data import AQSData
 
 class AirQualitySensor:
     """
     AirQuality class that takes sensor measurements and handles all high level processes.
     """
 
-    def __init__(self, led, i2c, sd_logger, button) -> None:
+    def __init__(self, led, i2c, data_logger, event_logger, button, clock) -> None:
         # Load settings from TOML
         self.cfg = load_settings()
 
         # Initialize the AirQuality class with button, RTC, and logger
         self.i2c = i2c
         self.led = led
-        self.sd_logger = sd_logger
+        self.data_logger = data_logger
+        self.event_logger = event_logger
         self.button = button
+        self.clock = clock
         # Initialize sensors
         self.co2_sensor = SCD4X(i2c) # CO2 / T / RH: SCD4x
         self.co2_sensor.start_periodic_measurement()
@@ -41,7 +43,9 @@ class AirQualitySensor:
         self.voc_index: int|None = None
         self.nox_raw: int|None = None
         self.nox_index: int|None = None
-        self.pm: dict|None = None
+        self.pm10: float|None = None
+        self.pm25: float|None = None
+        self.pm100: float|None = None
 
         # Settings
         self.shutdown_hold = get(self.cfg, "button.shutdown_hold", 2.0)
@@ -57,8 +61,9 @@ class AirQualitySensor:
         self._shutdown: bool = False
 
         # Indicate initialization is complete and system is ready
-        self.sd_logger.debug(msg="System initialized and ready.")
+        self.event_logger.debug(msg="System initialized and ready.")
         self.led.startup_blink()
+
 
     def __enter__(self):
         return self
@@ -70,11 +75,27 @@ class AirQualitySensor:
 
     def safe_shutdown(self) -> None:
         """Perform safe shutdown actions: log, LED, and optionally power down hardware."""
-        self.sd_logger.debug("Safe shutdown initiated.")
-        self.sd_logger.unmount()
+        self.event_logger.debug("Safe shutdown initiated.")
         self._shutdown = True  # Set shutdown flag
         self.led.shutdown_blink()
 
+
+    def build_aqs_data(self) -> AQSData:
+        return AQSData(
+            datetime=self.clock.internal_now,
+            temp=self.temp_value,
+            humidity=self.humidity_value,
+            dp=self.dew_point,
+            co2=self.co2_value,
+            voc_raw=self.voc_raw,
+            voc_index=self.voc_index,
+            nox_raw=self.nox_raw,
+            nox_index=self.nox_index,
+            pm10=self.pm10,
+            pm25=self.pm25,
+            pm100=self.pm100
+        )
+    
 
     async def read_sensors(self) -> None:
         """
@@ -95,7 +116,7 @@ class AirQualitySensor:
                     self.co2_value = self.co2_sensor.CO2
             except (OSError, RuntimeError) as e:
                 self.co2_value = None
-                self.sd_logger.error(msg=f"Error reading CO2 sensor: {e}")
+                self.event_logger.error(msg=f"Error reading CO2 sensor: {e}")
 
             try:
                 # SHT4x temp / RH
@@ -106,7 +127,7 @@ class AirQualitySensor:
             except (OSError, RuntimeError) as e:
                 self.temp_value = None
                 self.humidity_value = None
-                self.sd_logger.error(msg=f"Error reading temperature/humidity sensor: {e}")
+                self.event_logger.error(msg=f"Error reading temperature/humidity sensor: {e}")
 
             try:
                 # SGP41 raw VOC & NOx reading
@@ -114,20 +135,20 @@ class AirQualitySensor:
             except (OSError, RuntimeError) as e:
                 self.voc_raw = None
                 self.nox_raw = None
-                self.sd_logger.error(msg=f"Error reading VOC/NOx sensor: {e}")
+                self.event_logger.error(msg=f"Error reading VOC/NOx sensor: {e}")
 
             try:
                 # PM25 dict
-                self.pm = self.pm_sensor.read()
+                pm = self.pm_sensor.read()
             except (OSError, RuntimeError) as e:
-                self.pm = None
-                self.sd_logger.error(msg=f"Error reading PM sensor: {e}")
+                pm = None
+                self.event_logger.error(msg=f"Error reading PM sensor: {e}")
 
             # Extract relevant PM values
-            if self.pm:
-                self.pm10 = self.pm.get("pm10 env")
-                self.pm25 = self.pm.get("pm25 env")
-                self.pm100 = self.pm.get("pm100 env")
+            if pm:
+                self.pm10 = pm.get("pm10 env")
+                self.pm25 = pm.get("pm25 env")
+                self.pm100 = pm.get("pm100 env")
             else:
                 self.pm10 = None
                 self.pm25 = None
@@ -148,41 +169,31 @@ class AirQualitySensor:
             except (OSError, RuntimeError) as e:
                 self.voc_index = None
                 self.nox_index = None
-                self.sd_logger.error(msg=f"Error reading VOC/NOx indices: {e}")
+                self.event_logger.error(msg=f"Error reading VOC/NOx indices: {e}")
             await asyncio.sleep(self.voc_index_interval)
 
 
-    async def print_data(self) -> None:
-        """
-        Prints sensor data to console and calculates air score and sets led color by score if not logging.
-        """
-        while not self._shutdown:
-            self.sd_logger.print_sensor_data(
-                self.temp_value, self.humidity_value,
-                self.dew_point, self.co2_value,
-                self.voc_raw, self.voc_index,
-                self.nox_raw, self.nox_index,
-                self.pm10, self.pm25, self.pm100
-            )
+    async def display_data(self) -> None:
+        aqs_data = self.build_aqs_data()
 
-            if not self._logging:
-                air_score_dict = get_display_data(self.co2_value, self.temp_value,
-                                              self.humidity_value, self.voc_index, self.nox_index, self.pm)
+        if not self._logging:
+            air_score_dict = get_display_data(aqs_data)
 
-                self.led.show_air_quality_data(air_score_dict)
+            self.led.show_air_quality_data(air_score_dict)
 
-            await asyncio.sleep(self.print_interval)  # Wait for the next logging interval
+        await asyncio.sleep(self.print_interval)  # Wait for the next logging interval
 
 
-    async def log_data(self) -> None:
+    async def send_data(self) -> None:
         """
         Logs data if self._logging is True.
         """
+        aqs_data = self.build_aqs_data()
+
         while not self._shutdown:
+            self.data_logger.send_data(aqs_data)
             if self._logging:
-                self.sd_logger.log_data(self.co2_value, self.temp_value,
-                                        self.humidity_value, self.voc_raw,
-                                        self.voc_index, self.nox_raw, self.nox_index, self.pm)
+                self.data_logger.log_data(aqs_data)
 
             await asyncio.sleep(self.log_interval)  # Wait for the next logging interval
 
@@ -200,11 +211,11 @@ class AirQualitySensor:
                 self._logging = not self._logging
                 if self._logging:
                     # Start new log file with RTC datetime
-                    self.sd_logger.start_new_log()
-                    self.sd_logger.debug(msg="Logging started.")
+                    self.data_logger.start_new_log()
+                    self.event_logger.debug(msg="Logging started.")
                 else:
-                    self.sd_logger.stop_log()
-                    self.sd_logger.debug(msg="Logging stopped.")
+                    self.data_logger.stop_log()
+                    self.event_logger.debug(msg="Logging stopped.")
 
             # Safe shutdown only if held
             elif held_duration >= self.shutdown_hold:
@@ -219,10 +230,10 @@ class AirQualitySensor:
         """
         while not self._shutdown:
             try:
-                self.sd_logger.clock.sync()
-                self.sd_logger.debug(msg="System clock synced with RTC.")
+                self.clock.sync()
+                self.event_logger.debug(msg="System clock synced with RTC.")
             except Exception as e:
-                self.sd_logger.error(msg=f"Error syncing system clock: {e}")
+                self.event_logger.error(msg=f"Error syncing system clock: {e}")
             await asyncio.sleep(60*60*24)  # Sync every 24 hours
 
 
@@ -233,8 +244,8 @@ class AirQualitySensor:
         await asyncio.gather(
             self.read_sensors(),
             self.read_voc_nox_index(),
-            self.print_data(),
-            self.log_data(),
+            self.display_data(),
+            self.send_data(),
             self.monitor_button(),
-            self.sync_clock()  # Ensure clock is synced periodically
+            self.sync_clock()  
         )

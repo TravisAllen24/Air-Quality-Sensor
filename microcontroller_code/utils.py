@@ -43,11 +43,14 @@ def calculate_dew_point(temp_c: float|None, rh: float|None) -> float|None:
     except Exception:
         return None
 
-def piecewise_linear(x: float, points: list[tuple[float, float]]) -> float:
+def piecewise_linear(x: float|None, points: list[tuple[float, float]]) -> float:
     """
     Interpolate x along `points`, a list of (x, y) tuples sorted by x ascending.
     Values outside the range clamp to the nearest endpoint's y.
     """
+    if not x:
+        x = 0.0
+    
     if x <= points[0][0]:
         return float(points[0][1])
     if x >= points[-1][0]:
@@ -58,15 +61,15 @@ def piecewise_linear(x: float, points: list[tuple[float, float]]) -> float:
     raise ValueError(f"x={x} not covered by points={points}")
 
 
-CO2_CURVE  = [(800, 100), (1200, 80), (2000, 40), (5000, 0)]
-PM25_CURVE = [(12, 100), (35, 70), (55, 50), (150, 20), (250, 5), (500, 0)]
-VOC_CURVE  = [(100, 100), (200, 70), (400, 30), (500, 10), (1000, 0)]
-NOX_CURVE  = [(0, 100), (500, 0)]
+CO2_CURVE: list[tuple[float, float]]  = [(800, 100), (1200, 80), (2000, 40), (5000, 0)]
+PM25_CURVE: list[tuple[float, float]] = [(12, 100), (35, 70), (55, 50), (150, 20), (250, 5), (500, 0)]
+VOC_CURVE: list[tuple[float, float]]  = [(100, 100), (200, 70), (400, 30), (500, 10), (1000, 0)]
+NOX_CURVE: list[tuple[float, float]]  = [(0, 100), (500, 0)]
 
-TEMP_LOW  = [(-5, 0), (5, 20), (15, 50), (18, 80), (21, 100)]
-TEMP_HIGH = [(24, 100), (27, 80), (30, 50), (40, 20), (50, 0)]
-RH_LOW    = [(0, 0), (2, 20), (10, 50), (20, 80), (30, 100)]
-RH_HIGH   = [(60, 100), (70, 80), (90, 50), (98, 20), (100, 0)]
+TEMP_LOW: list[tuple[float, float]]  = [(-5, 0), (5, 20), (15, 50), (18, 80), (21, 100)]
+TEMP_HIGH: list[tuple[float, float]] = [(24, 100), (27, 80), (30, 50), (40, 20), (50, 0)]
+RH_LOW: list[tuple[float, float]]    = [(0, 0), (2, 20), (10, 50), (20, 80), (30, 100)]
+RH_HIGH: list[tuple[float, float]]   = [(60, 100), (70, 80), (90, 50), (98, 20), (100, 0)]
 
 
 def co2_score(co2: int | None) -> float:
@@ -74,20 +77,19 @@ def co2_score(co2: int | None) -> float:
     return piecewise_linear(co2 if co2 is not None else 400, CO2_CURVE)
 
 
-def pm25_score(pm: dict | None) -> float:
+def pm25_score(pm25: int | None) -> float:
     """PM2.5 quality score: 100 (good) to 0 (hazardous)."""
-    pm25 = pm.get("pm25 standard", pm.get("pm25 env", 0)) if pm else 0
     return piecewise_linear(pm25, PM25_CURVE)
 
 
 def voc_score(voc_index: int | None) -> float:
     """VOC quality score: 100 (good) to 0 (hazardous)."""
-    return piecewise_linear(voc_index if voc_index is not None else 0, VOC_CURVE)
+    return piecewise_linear(voc_index, VOC_CURVE)
 
 
 def nox_score(nox_index: int | None) -> float:
     """NOx quality score: 100 (good) to 0 (hazardous)."""
-    return piecewise_linear(nox_index if nox_index is not None else 0, NOX_CURVE)
+    return piecewise_linear(nox_index, NOX_CURVE)
 
 
 def temp_score(temp_c: float | None) -> float:
@@ -135,14 +137,14 @@ def value_to_mag(value, min_value=0, max_value=100, num_pixels=7):
     return int((value - min_value) / (max_value - min_value) * num_pixels)
 
 
-def get_display_data(co2, temp_c, rh, voc_index, nox_index, pm):
+def get_display_data(aqs_data) -> dict:
     quality = {
-        "temp": temp_score(temp_c),
-        "rh": rh_score(rh),
-        "co2": co2_score(co2),
-        "voc": voc_score(voc_index),
-        "nox": nox_score(nox_index),
-        "pm": pm25_score(pm),
+        "temp": temp_score(aqs_data.temp),
+        "rh": rh_score(aqs_data.humidity),
+        "co2": co2_score(aqs_data.co2),
+        "voc": voc_score(aqs_data.voc_index),
+        "nox": nox_score(aqs_data.nox_index),
+        "pm": pm25_score(aqs_data.pm25),
     }
     quality["air"] = air_quality_score(list(quality.values()))
 
@@ -175,3 +177,4 @@ def rgb_color_wheel(wheel_pos):
     else:
         wheel_pos -= 170
         return wheel_pos * 3, 255 - wheel_pos * 3, 0
+    

@@ -1,9 +1,11 @@
 """
 Test script for air quality scoring functions in utils.py
 """
-from utils import co2_score, pm25_score, voc_score, nox_score, temp_score, rh_score, air_quality_score, get_display_data
-from hardware.led import LED
 from time import sleep
+
+from hardware.led import LED
+from hardware.feathers3neo import FeatherS3Neo
+from utils import co2_score, pm25_score, voc_score, nox_score, temp_score, rh_score, air_quality_score, get_display_data
 
 # Test cases: (co2, temp_c, rh, voc_index, pm_dict)
 test_cases = [
@@ -44,7 +46,8 @@ for co2, temp, rh, voc, nox, pm in test_cases:
 
     print("\nLegend: Score = overall air score, CO2s = CO2 score, PMs = PM2.5 score, VOCs = VOC score, Ts = Temp score, RHs = RH score")
 
-    led = LED()
+    feather = FeatherS3Neo()
+    led = LED(feather.matrix, feather.pixel, feather.blue_led, feather.pixel_power, brightness=0.2)
     air_score_dict = get_display_data(co2, temp, rh, voc, nox, pm)
 
     led.show_air_quality_data(air_score_dict)

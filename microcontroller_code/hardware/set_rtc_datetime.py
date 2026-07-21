@@ -1,9 +1,9 @@
 import time
-from i2c import I2C
-from clock import Clock
-import rtc
-# Set to current time (replace with your actual current time)
 
+from hardware.feathers3neo import FeatherS3Neo
+from hardware.clock import Clock
+
+# Set to current time (replace with your actual current time)
 year = 2026
 month = 5
 day = 27
@@ -13,8 +13,9 @@ second = 0
 
 # Format: (year, month, day, hour, minute, second, weekday, yearday, isdst)
 # Weekday: Monday is 0, Sunday is 6
-i2c = I2C()
-internal_rtc = rtc.RTC()  # Replace with your actual internal RTC object if needed
+feather = FeatherS3Neo()
+i2c = feather.i2c
+internal_rtc = feather.internal_rtc  # Replace with your actual internal RTC object if needed
 clock = Clock(i2c, internal_rtc)  # Replace None with your actual I2C object if needed
 clock.datetime = time.struct_time((year, month, day, hour, minute, second, 0, -1, -1))
 

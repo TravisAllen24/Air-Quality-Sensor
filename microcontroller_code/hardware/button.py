@@ -1,5 +1,3 @@
-import digitalio # type: ignore
-import board # type: ignore
 import time
 
 class Button:

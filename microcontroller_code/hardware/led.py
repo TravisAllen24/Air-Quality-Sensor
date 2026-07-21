@@ -1,7 +1,11 @@
 from time import sleep
+import time
 
-from hardware.led_patterns import ROW_ORDER, COLOR_MAPPING, OFF, SNAKE, EXPANDING_SQUARE, EXCLAMATION
-from utils import power_guarded
+from hardware.led_patterns import (ROW_ORDER, COLOR_MAPPING, OFF, 
+                                   SNAKE, CONTRACTING_SQUARE, EXPANDING_SQUARE, 
+                                   EXCLAMATION, SPIRAL)
+
+from utils import power_guarded, rgb_color_wheel
 
 class LED:
     """Handles LED operations, including color mapping and updates."""
@@ -67,9 +71,13 @@ class LED:
 
 
     # List methods
-    def show_pattern(self, pattern, color):
+    def show_pattern(self, pattern, color, rgb_color=None):
         # Turns on leds in list and turns off the rest
-        led_color = COLOR_MAPPING.get(color, OFF)
+        if rgb_color is not None:
+            led_color = rgb_color
+        else:
+            led_color = COLOR_MAPPING.get(color, OFF)
+
         for i in range(len(self._matrix)):
             if i in pattern:
                 self._matrix[i] = led_color
@@ -89,9 +97,24 @@ class LED:
             self.show_pattern(frame, color)
             sleep(delay)
 
-    def spiral(self, delay=0.05):
-        pass
+    def animate_with_color_wheel(self, pattern: list[list[int]], delay = 0.05, duration = 5):
+        NEXT_COL = 0.01
+        next_color_step = 0.01
+        color_index = 0
+        r,g,b = rgb_color_wheel(color_index)
 
+        start_time = time.monotonic()
+        while time.monotonic() - start_time < duration:
+            for frame in pattern:
+                if time.monotonic() > NEXT_COL + next_color_step:
+                    color_index += 1
+                    # Get the R,G,B values of the next color
+                    r,g,b = rgb_color_wheel( color_index )
+
+                    NEXT_COL = time.monotonic()
+                    
+                self.show_pattern(frame, color=None, rgb_color=(r,g,b))
+                sleep(delay)
 
     # Row methods
     def show_air_quality_data(self, row_data, num_cols=7):
@@ -128,7 +151,7 @@ class LED:
 
     @power_guarded(fallback_blinks=2, fallback_duration=1)
     def shutdown_blink(self, color = 'yellow', delay = 0.05):
-        self.animate_pattern(list(reversed(EXPANDING_SQUARE)), color, delay)
+        self.animate_pattern(CONTRACTING_SQUARE, color, delay)
 
     @power_guarded(fallback_blinks=3)
     def start_log_blink(self, color='blue', delay=0.05):
@@ -136,7 +159,12 @@ class LED:
 
     @power_guarded(fallback_blinks=2)
     def stop_log_blink(self, color = 'blue', delay = 0.05):
-        self.animate_pattern(list(reversed(EXPANDING_SQUARE)), color, delay)
+        self.animate_pattern(CONTRACTING_SQUARE, color, delay)
 
+    @power_guarded()
     def log_data_blink(self, color = 'blue', delay = 0.05):
         self.animate_pattern(SNAKE, color, delay)
+
+    @power_guarded()
+    def spiral(self, duration = 5, delay = 0.05):
+        self.animate_with_color_wheel(SPIRAL, delay=delay, duration=duration)

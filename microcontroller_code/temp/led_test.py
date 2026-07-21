@@ -1,21 +1,15 @@
-import board, time
-from digitalio import DigitalInOut, Direction, Pull
-
 import time
-import neopixel
-import board
-from os import statvfs
-from digitalio import DigitalInOut, Direction
-from analogio import AnalogIn
-import gc
 
 from utils import rgb_color_wheel
 from hardware.feathers3neo import FeatherS3Neo
 from hardware.led import LED
 
-helper = FeatherS3Neo()
-led = LED(helper.matrix, helper.pixel, helper.blue_led)
-led.log_data_blink()
+feather = FeatherS3Neo()
+led = LED(feather.matrix, feather.pixel, feather.blue_led, feather.pixel_power, brightness=0.2)
+for _ in range(3):
+    led.log_data_blink()
+
+led.spiral(duration=10)
 
 
 class MatrixAnimation:
@@ -75,13 +69,9 @@ class MatrixAnimation:
                 self.inc_anim_index(index)
 
 
-# Turn on the power to the NeoPixel matrix
-# helper.set_pixel_matrix_power(True)
-
-
 # Initialise the matrix animation class, passing it the matrix, the animation shape name, and the trail length
 # You can use this class to make pretty trail based shape animations
-matrix_anim = MatrixAnimation(helper.matrix, 'spiral', 7)
+matrix_anim = MatrixAnimation(feather.matrix, 'spiral', 7)
 
 
 def spiral(next_color_step = 0.01, NEXT_COL = 0.01):
@@ -100,5 +90,5 @@ def spiral(next_color_step = 0.01, NEXT_COL = 0.01):
         time.sleep(0.04)
 
 if __name__ == "__main__":
-    helper.startup_message()
+    feather.startup_message()
     spiral()
