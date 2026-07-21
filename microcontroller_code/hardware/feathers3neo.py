@@ -1,11 +1,12 @@
-import neopixel
-import board
-from os import statvfs
 from digitalio import DigitalInOut, Direction
 from analogio import AnalogIn
+from os import statvfs
 import digitalio
+import neopixel
+import board
 import busio
 import rtc
+import gc
 
 class FeatherS3Neo:
     def __init__(self):
@@ -31,17 +32,16 @@ class FeatherS3Neo:
         # Create a NeoPixel matrix reference
         self._matrix = neopixel.NeoPixel(board.NEOPIXEL_MATRIX, 49, brightness=0.3, auto_write=True, pixel_order=neopixel.RGB)
 
-        # BROKEN CODE
-        # # setup i2c
-        # self._i2c = busio.I2C(board.SCL, board.SDA, frequency=400000)
+        # setup i2c
+        self._i2c = busio.I2C(board.SCL, board.SDA, frequency=400000)
 
-        # # setup RTC
-        # self._internal_rtc = rtc.RTC()
+        # setup RTC
+        self._internal_rtc = rtc.RTC()
 
-        # # Setup button
-        # self._btn = digitalio.DigitalInOut(pin=board.BUTTON)
-        # self._btn.direction = digitalio.Direction.INPUT
-        # self._btn.pull = digitalio.Pull.UP
+        # Setup button
+        self._btn = digitalio.DigitalInOut(pin=board.IO0)
+        self._btn.direction = digitalio.Direction.INPUT
+        self._btn.pull = digitalio.Pull.UP
 
 
     def set_pixel_matrix_power(self, state):
@@ -98,7 +98,11 @@ class FeatherS3Neo:
     @property
     def matrix(self):
         return self._matrix
-
+    
+    @property
+    def pixel_power(self):
+        return self._pixel_power
+    
     @property
     def flash_info(self):
         return self.get_flash_info()

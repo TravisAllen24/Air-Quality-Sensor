@@ -1,22 +1,19 @@
 from time import sleep
-from digitalio import DigitalInOut, Direction # type: ignore
-import neopixel # type: ignore
-import board # type: ignore
 
 from hardware.led_patterns import ROW_ORDER, COLOR_MAPPING, OFF, SNAKE, EXPANDING_SQUARE, EXCLAMATION
-from aqs_settings import load_settings, get
 from utils import power_guarded
 
 class LED:
     """Handles LED operations, including color mapping and updates."""
 
-    def __init__(self,  matrix, pixel, blue_led, brightness=0.2):
+    def __init__(self,  matrix, pixel, blue_led, pixel_power, brightness=0.2):
         self._matrix = matrix
         self._pixel = pixel
         self._blue_led = blue_led
         self._brightness = brightness
         self._matrix.brightness = brightness
         self._pixel.brightness = brightness
+        self._pixel_power = pixel_power
 
 
     # Individual pixel methods
@@ -92,7 +89,7 @@ class LED:
             self.show_pattern(frame, color)
             sleep(delay)
 
-    def spiral(self, color, delay):
+    def spiral(self, delay=0.05):
         pass
 
 
@@ -131,7 +128,7 @@ class LED:
 
     @power_guarded(fallback_blinks=2, fallback_duration=1)
     def shutdown_blink(self, color = 'yellow', delay = 0.05):
-        self.animate_pattern(CONTRACTING_SQUARE, color, delay)
+        self.animate_pattern(list(reversed(EXPANDING_SQUARE)), color, delay)
 
     @power_guarded(fallback_blinks=3)
     def start_log_blink(self, color='blue', delay=0.05):
@@ -139,7 +136,7 @@ class LED:
 
     @power_guarded(fallback_blinks=2)
     def stop_log_blink(self, color = 'blue', delay = 0.05):
-        self.animate_pattern(CONTRACTING_SQUARE, color, delay)
+        self.animate_pattern(list(reversed(EXPANDING_SQUARE)), color, delay)
 
     def log_data_blink(self, color = 'blue', delay = 0.05):
         self.animate_pattern(SNAKE, color, delay)

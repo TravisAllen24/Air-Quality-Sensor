@@ -153,16 +153,14 @@ def get_display_data(co2, temp_c, rh, voc_index, nox_index, pm):
 
 
 def power_guarded(fallback_duration=0.25, fallback_blinks=1):
-    # BROKEN
-    pass
-    # def decorator(func):
-    #     def wrapper(self, *args, **kwargs):
-    #         if self._pixel_power.value:
-    #             return func(self, *args, **kwargs)
-    #         else:
-    #             self.blue_blink(duration=fallback_duration, blinks=fallback_blinks)
-    #     return wrapper
-    # return decorator
+    def decorator(func):
+        def wrapper(self, *args, **kwargs):
+            if self._pixel_power.value:
+                return func(self, *args, **kwargs)
+            else:
+                self.blue_blink(duration=fallback_duration, blinks=fallback_blinks)
+        return wrapper
+    return decorator
 
 
 def rgb_color_wheel(wheel_pos):
