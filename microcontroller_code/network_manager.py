@@ -47,7 +47,3 @@ class WifiManager:
         """Receive data from the given TCP socket."""
         return sock.recv(buffer_size)
     
-
-
-class BluetoothManager:
-    ...

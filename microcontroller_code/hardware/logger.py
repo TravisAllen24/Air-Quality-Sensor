@@ -1,22 +1,19 @@
-from utils import format_value
 from aqs_settings import get, load_settings
-from aqs_data import AQSData
-
 
 class TCPSink:
     def __init__(self, wifi_manager, temp_unit="C"):
         self.wifi_manager = wifi_manager
         self.temp_unit = temp_unit
 
-    def start_logging(self):
+    def start(self):
         if self.wifi_manager.is_connected():
             self.wifi_manager.open_tcp_connection()
 
-    def send_data(self, data: AQSData):
+    def write_data(self, data: "AQSData"): # type: ignore
         if self.wifi_manager.is_connected():
-            self.wifi_manager.send_data(f"$AQS,{data.datetime},{data.temp},{data.humidity},{data.dp},{data.co2},{data.voc_raw},{data.voc_index},{data.nox_raw},{data.nox_index},{data.pm100},{data.pm25},{data.pm10}")
+            self.wifi_manager.send_data(data)
 
-    def stop_logging(self):
+    def stop(self):
         if self.wifi_manager.is_connected():
             self.wifi_manager.close_tcp_connection()
 
@@ -26,28 +23,13 @@ class ConsoleSink:
         self.print_in_csv_format = print_in_csv_format
         self.temp_unit = temp_unit
 
-    def print_data(self, data: AQSData):
+    def write_data(self, data: "AQSData"): # type: ignore
         """Build and print a formatted sensor data message."""
         if self.print_in_csv_format:
-            print(f"$AQS,{data.datetime},{data.temp},{data.humidity},{data.dp},{data.co2},{data.voc_raw},{data.voc_index},{data.nox_raw},{data.nox_index},{data.pm100},{data.pm25},{data.pm10}")
+            print(data)
 
         else:
-            msg = ("RTC {} | T: {} {} RH: {}% -> DP: {} {} | CO2: {} ppm | "
-                   "VOC Raw: {} VOC Index: {} | NOx Raw: {} NOx Index: {} | PM10: {} PM2.5: {} PM1.0: {}".format(
-                        data.datetime,
-                        format_value(data.temp, 2), self.temp_unit,
-                        format_value(data.humidity, 2),
-                        format_value(data.dp, 2), self.temp_unit,
-                        format_value(data.co2),
-                        format_value(data.voc_raw),
-                        format_value(data.voc_index),
-                        format_value(data.nox_raw),
-                        format_value(data.nox_index),
-                        format_value(data.pm100),
-                        format_value(data.pm25),
-                        format_value(data.pm10),
-            ))
-            print(msg)
+            print(data.format_to_print(self.temp_unit))
 
 
 class SDSink:
@@ -59,20 +41,15 @@ class SDSink:
         self.file_path = f"/sd/log_{dt_sanitised}.csv"
         with open(self.file_path, "w") as f:
             f.write("timestamp,temp ({u}),humidity (%),co2 (ppm),voc_raw,voc_index,nox_raw,nox_index,pm10 (ug/m3),pm25 (ug/m3),pm100 (ug/m3)\n".format(u=self.temp_unit))
-        self.active = True
 
     def stop_log(self):
-        self.active = False
         self.file_path = None
 
-    def log_data(self, data: AQSData):
-        if not self.active or not self.file_path:
+    def write_data(self, data: "AQSData"): # type: ignore
+        if not self.file_path:
             return
-        pm10 = data.pm10 if data.pm10 is not None else None
-        pm25 = data.pm25 if data.pm25 is not None else None
-        pm100 = data.pm100 if data.pm100 is not None else None
         with open(self.file_path, "a") as f:
-            f.write(f"{data.datetime},{data.temp},{data.humidity},{data.co2},{data.voc_raw},{data.voc_index},{data.nox_raw},{data.nox_index},{pm10},{pm25},{pm100}\n")
+            f.write(f"{data}\n")
 
 
 class DataLogger:
@@ -80,16 +57,27 @@ class DataLogger:
         aqs_settings = load_settings()
 
         self.sinks = sinks
-        self.sd_sink = next((sink for sink in sinks if isinstance(sink, SDSink)), None) # ???
         self.led = led
         self.clock = clock
         self.print_in_csv_format = get(aqs_settings, "sd_logger.print_in_csv_format", False)
         self.temp_unit = get(aqs_settings, "sd_logger.temp_unit", "C")
-    
-    def start_new_log(self):
+
+        self.startup()
+
+    def startup(self):
         for sink in self.sinks:
             if isinstance(sink, TCPSink):
-                sink.start_logging()
+                sink.start()
+
+    def shutdown(self):
+        for sink in self.sinks:
+            if isinstance(sink, TCPSink):
+                sink.stop()
+            if isinstance(sink, SDSink):
+                sink.stop_log()
+        
+    def start_new_log(self):
+        for sink in self.sinks:
             if isinstance(sink, SDSink):
                 sink.start_new_log(self.clock.internal_now.replace(":", "-").replace(" ", "_"))
             
@@ -97,34 +85,34 @@ class DataLogger:
 
     def stop_log(self):
         for sink in self.sinks:
-            if isinstance(sink, TCPSink):
-                sink.stop_logging()
             if isinstance(sink, SDSink):
                 sink.stop_log()
             
         self.led.stop_log_blink()
 
-    def ensure_temp_unit(self, data: AQSData) -> AQSData:
+    def ensure_temp_unit(self, data: "AQSData") -> "AQSData": # type: ignore
         if self.temp_unit == "F":
             data = data.convert_to_fahrenheit()
         return data
 
-    def log_data(self, data: AQSData):
+    def log_data(self, data: "AQSData"): # type: ignore
         """Log data to all sinks."""
         data = self.ensure_temp_unit(data)
 
         for sink in self.sinks:
             if isinstance(sink, SDSink):
-                sink.log_data(data)
+                sink.write_data(data)
 
         self.led.log_data_blink()
 
-    def send_data(self, data: AQSData):
+    def send_data(self, data: "AQSData"): # type: ignore
+        data = self.ensure_temp_unit(data)
+
         for sink in self.sinks:
             if isinstance(sink, ConsoleSink):
-                sink.print_data(data)
+                sink.write_data(data)
             elif isinstance(sink, TCPSink):
-                sink.send_data(data)
+                sink.write_data(data)
     
 
 class EventLogger:

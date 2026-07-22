@@ -76,25 +76,9 @@ class AirQualitySensor:
     def safe_shutdown(self) -> None:
         """Perform safe shutdown actions: log, LED, and optionally power down hardware."""
         self.event_logger.debug("Safe shutdown initiated.")
+        self.data_logger.shutdown()  # Ensure all sinks are closed
         self._shutdown = True  # Set shutdown flag
         self.led.shutdown_blink()
-
-
-    def build_aqs_data(self) -> AQSData:
-        return AQSData(
-            datetime=self.clock.internal_now,
-            temp=self.temp_value,
-            humidity=self.humidity_value,
-            dp=self.dew_point,
-            co2=self.co2_value,
-            voc_raw=self.voc_raw,
-            voc_index=self.voc_index,
-            nox_raw=self.nox_raw,
-            nox_index=self.nox_index,
-            pm10=self.pm10,
-            pm25=self.pm25,
-            pm100=self.pm100
-        )
     
 
     async def read_sensors(self) -> None:
@@ -174,25 +158,33 @@ class AirQualitySensor:
 
 
     async def display_data(self) -> None:
-        aqs_data = self.build_aqs_data()
+        aqs_data = AQSData.from_sensor(self)
 
         if not self._logging:
             air_score_dict = get_display_data(aqs_data)
 
             self.led.show_air_quality_data(air_score_dict)
 
-        await asyncio.sleep(self.print_interval)  # Wait for the next logging interval
+        await asyncio.sleep(self.sensor_interval)  # Wait for the next logging interval
 
 
     async def send_data(self) -> None:
+
+        while not self._shutdown:
+            aqs_data = AQSData.from_sensor(self)
+            self.data_logger.send_data(aqs_data)
+
+            await asyncio.sleep(self.print_interval)  # Wait for the next logging interval
+
+
+    async def log_data(self) -> None:
         """
         Logs data if self._logging is True.
         """
-        aqs_data = self.build_aqs_data()
 
         while not self._shutdown:
-            self.data_logger.send_data(aqs_data)
             if self._logging:
+                aqs_data = AQSData.from_sensor(self)
                 self.data_logger.log_data(aqs_data)
 
             await asyncio.sleep(self.log_interval)  # Wait for the next logging interval
@@ -204,10 +196,12 @@ class AirQualitySensor:
         """
         while not self._shutdown:
             self.button.update()  # Update button state
-            held_duration = self.button.held()
 
             # Logging toggle only if not holding for shutdown
-            if (held_duration < 2.0) and (held_duration > 0.0):
+            if self.button.shutdown_press():
+                raise KeyboardInterrupt("Button held for safe shutdown.")
+
+            if self.button.logging_press():
                 self._logging = not self._logging
                 if self._logging:
                     # Start new log file with RTC datetime
@@ -216,10 +210,6 @@ class AirQualitySensor:
                 else:
                     self.data_logger.stop_log()
                     self.event_logger.debug(msg="Logging stopped.")
-
-            # Safe shutdown only if held
-            elif held_duration >= self.shutdown_hold:
-                raise KeyboardInterrupt("Button held for safe shutdown.")
 
             await asyncio.sleep(0.01)
 
@@ -246,6 +236,7 @@ class AirQualitySensor:
             self.read_voc_nox_index(),
             self.display_data(),
             self.send_data(),
+            self.log_data(),
             self.monitor_button(),
             self.sync_clock()  
         )

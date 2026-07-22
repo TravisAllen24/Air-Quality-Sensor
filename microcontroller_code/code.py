@@ -60,10 +60,12 @@ def main():
 
     except RuntimeError as e:
         print(f"A runtime error occurred. {e}")
+        sd_manager.unmount()
         led.continuous_error_blink()
 
     except Exception as e:
         print(f"Initialization error: {e}")
+        sd_manager.unmount()
         led.continuous_error_blink()
 
     finally:

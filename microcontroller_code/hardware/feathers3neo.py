@@ -27,10 +27,12 @@ class FeatherS3Neo:
         self._vbus_sense.direction = Direction.INPUT
 
         # Create a NeoPixel reference
-        self._pixel = neopixel.NeoPixel(board.NEOPIXEL, 1, brightness=0.3, auto_write=True, pixel_order=neopixel.RGB)
+        self._pixel = neopixel.NeoPixel(board.NEOPIXEL, 1, brightness=0.3, 
+                                        auto_write=True, pixel_order=neopixel.RGB)
 
         # Create a NeoPixel matrix reference
-        self._matrix = neopixel.NeoPixel(board.NEOPIXEL_MATRIX, 49, brightness=0.3, auto_write=True, pixel_order=neopixel.RGB)
+        self._matrix = neopixel.NeoPixel(board.NEOPIXEL_MATRIX, 49, brightness=0.3, 
+                                         auto_write=True, pixel_order=neopixel.RGB)
 
         # setup i2c
         self._i2c = busio.I2C(board.SCL, board.SDA, frequency=400000)
@@ -70,17 +72,14 @@ class FeatherS3Neo:
 
     @property
     def i2c(self):
-        """Exposes the shared I2C bus object for down-stream sensors."""
         return self._i2c
 
     @property
     def internal_rtc(self):
-        """Exposes CircuitPython's core software clock instance."""
         return self._internal_rtc
 
     @property
     def button_pin(self):
-        """Exposes the raw hardware button object for your ButtonManager."""
         return self._btn
 
     @property
