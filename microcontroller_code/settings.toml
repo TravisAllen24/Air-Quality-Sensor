@@ -1,2 +1,3 @@
-CIRCUITPY_WIFI_SSID = "Spectrum-Setup-AC80"
-CIRCUITPY_WIFI_PASSWORD = "latteridea209"
+# CIRCUITPY_WIFI_SSID = "Spectrum-Setup-AC80"
+# CIRCUITPY_WIFI_PASSWORD = "latteridea209"
+# 

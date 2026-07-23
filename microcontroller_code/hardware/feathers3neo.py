@@ -28,25 +28,25 @@ class FeatherS3Neo:
 
         # Create a NeoPixel reference
         self._pixel = neopixel.NeoPixel(board.NEOPIXEL, 1, brightness=0.3, 
-                                        auto_write=True, pixel_order=neopixel.RGB)
+                                        auto_write=False)
 
         # Create a NeoPixel matrix reference
         self._matrix = neopixel.NeoPixel(board.NEOPIXEL_MATRIX, 49, brightness=0.3, 
-                                         auto_write=True, pixel_order=neopixel.RGB)
+                                         auto_write=False)
 
         # setup i2c
-        self._i2c = busio.I2C(board.SCL, board.SDA, frequency=400000)
+#         self._i2c = busio.I2C(board.SCL, board.SDA, frequency=400000)
 
         # setup RTC
         self._internal_rtc = rtc.RTC()
 
         # Setup button
-        self._btn = digitalio.DigitalInOut(pin=board.IO0)
-        self._btn.direction = digitalio.Direction.INPUT
-        self._btn.pull = digitalio.Pull.UP
+#         self._btn = digitalio.DigitalInOut(pin=board.IO0)
+#         self._btn.direction = digitalio.Direction.INPUT
+#         self._btn.pull = digitalio.Pull.UP
 
 
-    def set_pixel_matrix_power(self, state):
+    def set_pixel_power(self, state):
         """Enable or Disable power to the onboard NeoPixel to either show colour, or to reduce power fro deep sleep"""
         self._pixel_power.value = state
 
@@ -108,7 +108,7 @@ class FeatherS3Neo:
 
     @property
     def blue_led(self):
-        return self._led13.value
+        return self._led13
 
     @blue_led.setter
     def blue_led(self,value):

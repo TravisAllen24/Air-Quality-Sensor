@@ -14,7 +14,6 @@ class LED:
         self._matrix = matrix
         self._pixel = pixel
         self._blue_led = blue_led
-        self._brightness = brightness
         self._matrix.brightness = brightness
         self._pixel.brightness = brightness
         self._pixel_power = pixel_power
@@ -30,19 +29,18 @@ class LED:
         self._pixel.fill(OFF)
         self._pixel.show()
 
-    def blink_once(self, color, duration=0.25, blinks=1):
-        led_color = COLOR_MAPPING.get(color, OFF)
-        self._pixel.fill(led_color)
-        sleep(duration)
-        self._pixel.fill(OFF)
+    def blink(self, color, duration=0.25, blinks=1):      
+        for _ in range(blinks):
+            self.on(color)
+            sleep(duration)
+            self.off()
+            sleep(duration)
 
     def blue_on(self):
         self._blue_led.value = True
-        self._pixel.show()
 
     def blue_off(self):
         self._blue_led.value = False
-        self._pixel.show()
 
     def blue_blink(self, duration=0.25, blinks=1):
         for _ in range(blinks):
@@ -57,11 +55,15 @@ class LED:
         led_color = COLOR_MAPPING.get(color, OFF)
         self._matrix.fill(led_color)
         self._pixel.fill(led_color)
+        self._matrix.show()
+        self._pixel.show()
 
 
     def all_off(self):
         self._matrix.fill(OFF)
         self._pixel.fill(OFF)
+        self._matrix.show()
+        self._pixel.show()
 
 
     def all_blink_once(self, color = 'red', duration = 0.25):
@@ -71,7 +73,7 @@ class LED:
 
 
     # List methods
-    def show_pattern(self, pattern, color, rgb_color=None):
+    def show_pattern(self, pattern, color="blue", rgb_color=None):
         # Turns on leds in list and turns off the rest
         if rgb_color is not None:
             led_color = rgb_color
@@ -84,7 +86,9 @@ class LED:
             else:
                 self._matrix[i] = OFF
 
+        self._pixel.fill(led_color)
         self._matrix.show()
+        self._pixel.show()  
 
 
     def blink_pattern(self, pattern: list[int], color, duration = 0.25):
@@ -96,6 +100,8 @@ class LED:
         for frame in pattern:
             self.show_pattern(frame, color)
             sleep(delay)
+            
+        self.all_off()
 
     def animate_with_color_wheel(self, pattern: list[list[int]], delay = 0.05, duration = 5):
         NEXT_COL = 0.01
@@ -115,6 +121,8 @@ class LED:
                     
                 self.show_pattern(frame, color=None, rgb_color=(r,g,b))
                 sleep(delay)
+                
+        self.all_off()
 
     # Row methods
     def show_air_quality_data(self, row_data, num_cols=7):
@@ -146,11 +154,11 @@ class LED:
             sleep(1)
 
     @power_guarded(fallback_blinks=3, fallback_duration=1)
-    def startup_blink(self, color = 'white', delay = 0.05):
+    def startup_blink(self, color = 'white', delay = 0.1):
         self.animate_pattern(EXPANDING_SQUARE, color, delay)
 
     @power_guarded(fallback_blinks=2, fallback_duration=1)
-    def shutdown_blink(self, color = 'yellow', delay = 0.05):
+    def shutdown_blink(self, color = 'yellow', delay = 0.1):
         self.animate_pattern(CONTRACTING_SQUARE, color, delay)
 
     @power_guarded(fallback_blinks=3)
