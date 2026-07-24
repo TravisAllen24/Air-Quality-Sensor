@@ -2,10 +2,13 @@ import wifi # type: ignore
 import socketpool # type: ignore
 
 class WifiManager:
-    def __init__(self, ssid, password):
-        self.ssid = ssid
-        self.password = password
+    def __init__(self, cfg):
+        self.ssid = cfg.get("wifi.CIRCUITPY_WIFI_SSID")
+        self.password = cfg.get("wifi.CIRCUITPY_WIFI_PASSWORD")
         self.pool = None
+
+
+        self.connect()  # Automatically connect upon initialization
 
     def connect(self):
         """Connect to the specified Wi-Fi network."""

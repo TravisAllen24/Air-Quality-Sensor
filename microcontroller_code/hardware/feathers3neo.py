@@ -35,15 +35,19 @@ class FeatherS3Neo:
                                          auto_write=False)
 
         # setup i2c
-#         self._i2c = busio.I2C(board.SCL, board.SDA, frequency=400000)
+        self._i2c = busio.I2C(board.SCL, board.SDA, frequency=100_000)
 
         # setup RTC
         self._internal_rtc = rtc.RTC()
 
         # Setup button
-#         self._btn = digitalio.DigitalInOut(pin=board.IO0)
-#         self._btn.direction = digitalio.Direction.INPUT
-#         self._btn.pull = digitalio.Pull.UP
+        self._btn = digitalio.DigitalInOut(board.IO0)
+        self._btn.direction = digitalio.Direction.INPUT
+        self._btn.pull = digitalio.Pull.UP
+
+        # setup SPI
+        self._spi = board.SPI()
+        self._cs_pin = board.D10
 
 
     def set_pixel_power(self, state):
@@ -69,10 +73,24 @@ class FeatherS3Neo:
         flash_free = flash[0] * flash[3]
         return flash_size, flash_free
 
+    def get_sd_card_info(self):
+        flash = statvfs('/sd')
+        flash_size = flash[0] * flash[2]
+        flash_free = flash[0] * flash[3]
+        return flash_size, flash_free
+
 
     @property
     def i2c(self):
         return self._i2c
+
+    @property
+    def spi(self):
+        return self._spi, self._cs_pin
+
+    @property
+    def cs_pin(self):
+        return self._cs_pin
 
     @property
     def internal_rtc(self):
@@ -115,9 +133,9 @@ class FeatherS3Neo:
         # Turn the Blue LED on or off
         self._led13.value = value
 
-    def startup_message(self):
+    def startup_message(self, clock_battery_low=None):
         # Turn on the power to the NeoPixel matrix
-        self.set_pixel_matrix_power(True)
+        self.set_pixel_power(True)
 
         # Say hello
         print("\nHello from FeatherS3 Neo!")
@@ -137,6 +155,12 @@ class FeatherS3Neo:
         print("---------------------------")
         print(f"Partition Size: {flash_size/1024/1024} Megabytes\nFree: {flash_free/1024/1024} Megabytes\n")
 
+        # Show sd size
+        sd_size, sd_free = self.get_sd_card_info()
+        print("SD Card - os.statvfs('/sd')")
+        print("---------------------------")
+        print(f"Partition Size: {sd_size/1024/1024} Megabytes\nFree: {sd_free/1024/1024} Megabytes\n")
+
         # Get VBAT voltage
         print("Approximate VBAT voltage")
         print("------------------------")
@@ -146,3 +170,9 @@ class FeatherS3Neo:
         print("Is 5V (VBUS) present?")
         print("---------------------")
         print(f"{self.vbus_present}\n")
+
+        # Show clock battery status
+        if clock_battery_low == True:
+            print("Is RTC battery low?")
+            print("------------------")
+            print(f"{clock_battery_low}\n")

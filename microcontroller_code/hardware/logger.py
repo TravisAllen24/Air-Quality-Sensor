@@ -1,9 +1,7 @@
-from aqs_settings import get, load_settings
-
 class TCPSink:
-    def __init__(self, wifi_manager, temp_unit="C"):
+    def __init__(self, wifi_manager, cfg):
         self.wifi_manager = wifi_manager
-        self.temp_unit = temp_unit
+        self.temp_unit = cfg.get("tcp_sink.temp_unit", "C")
 
     def start(self):
         if self.wifi_manager.is_connected():
@@ -19,9 +17,9 @@ class TCPSink:
 
 
 class ConsoleSink:
-    def __init__(self, print_in_csv_format=False, temp_unit="C"):
-        self.print_in_csv_format = print_in_csv_format
-        self.temp_unit = temp_unit
+    def __init__(self, cfg):
+        self.print_in_csv_format = cfg.get("console_logger.print_in_csv_format", False)
+        self.temp_unit = cfg.get("console_logger.temp_unit", "C")
 
     def write_data(self, data: "AQSData"): # type: ignore
         """Build and print a formatted sensor data message."""
@@ -33,12 +31,13 @@ class ConsoleSink:
 
 
 class SDSink:
-    def __init__(self, temp_unit="C"):
-        self.temp_unit = temp_unit
+    def __init__(self, cfg):
+        self.mount_path = "/sd"
+        self.temp_unit = cfg.get("sd_logger.temp_unit", "C")
 
     def start_new_log(self, dt_sanitised):
         """Start a new log file with datetime in filename."""
-        self.file_path = f"/sd/log_{dt_sanitised}.csv"
+        self.file_path = f"{self.mount_path}/log_{dt_sanitised}.csv"
         with open(self.file_path, "w") as f:
             f.write("timestamp,temp ({u}),humidity (%),co2 (ppm),voc_raw,voc_index,nox_raw,nox_index,pm10 (ug/m3),pm25 (ug/m3),pm100 (ug/m3)\n".format(u=self.temp_unit))
 
@@ -53,14 +52,12 @@ class SDSink:
 
 
 class DataLogger:
-    def __init__(self, sinks: list, led, clock):
-        aqs_settings = load_settings()
-
+    def __init__(self, sinks: list, led, clock, cfg):
         self.sinks = sinks
         self.led = led
         self.clock = clock
-        self.print_in_csv_format = get(aqs_settings, "sd_logger.print_in_csv_format", False)
-        self.temp_unit = get(aqs_settings, "sd_logger.temp_unit", "C")
+        self.temp_unit = cfg.get("data_logger.temp_unit", "C")
+        self.print_in_csv_format = cfg.get("data_logger.print_in_csv_format", False)
 
         self.startup()
 
@@ -119,12 +116,13 @@ class EventLogger:
     def __init__(self, led, clock):
         self.led = led
         self.clock = clock
+        self.mount_path = "/sd"
 
     def log_info(self, msg: str):
         """Log an info or error message to a separate log file on the SD card,
         and optionally print to console and blink LED."""
 
-        log_file = "/sd/info.log"
+        log_file = f"{self.mount_path}/info.log"
         print(f"{self.clock.internal_now}: {msg}")
         try:
             with open(log_file, "a") as f:

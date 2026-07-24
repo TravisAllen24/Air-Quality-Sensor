@@ -9,7 +9,7 @@ COLOR_MAPPING = {
     "cyan": (0, 255, 255),
     "magenta": (255, 0, 255),
     "white": (255, 255, 255),
-    "orange": (255, 165, 0),
+    "orange": (255, 85, 0),
     "off": OFF,
 }
 
@@ -134,6 +134,7 @@ EXPANDING_SQUARE = [
 ]
 
 CONTRACTING_SQUARE = list(reversed(EXPANDING_SQUARE))
+
 SPIRAL = [
     [24],
     [24, 25],
@@ -227,10 +228,6 @@ SPIRAL = [
     [31, 24],
     [24],
 ]
-
-# Different Animation method
-SQUARE_1 = [0,1,2,3,4,5,6,13,20,27,34,41,48,47,46,45,44,43,42,35,28,21,14,7]
-SPIRAL_1 = [24,25,32,31,30,23,16,17,18,25,32,39,38,37,36,29,22,15,8,9,10,11,12,19,26,33,40,47,46,45,44,43,42,35,28,21,14,7,0,1,2,3,4,5,6,13,20,27,34,41,48,47,46,45,44,43,42,35,28,21,14,7,8,9,10,11,12,19,26,33,40,39,38,37,36,29,22,15,16,17,18,25,32,31,30,23,24,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]
 
 # Helper for converting a grid docstring to a list of lit pixel indices
 def pattern_from_docstring(grid, on_char='⬜'):

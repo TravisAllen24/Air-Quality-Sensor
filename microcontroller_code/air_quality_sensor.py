@@ -8,7 +8,6 @@ from adafruit_sgp41.sgp41 import SGP41 # type: ignore
 from adafruit_pm25.i2c import PM25_I2C # type: ignore
 
 from utils import calculate_dew_point, get_display_data
-from aqs_settings import load_settings, get
 from aqs_data import AQSData
 
 class AirQualitySensor:
@@ -16,9 +15,9 @@ class AirQualitySensor:
     AirQuality class that takes sensor measurements and handles all high level processes.
     """
 
-    def __init__(self, led, i2c, data_logger, event_logger, button, clock) -> None:
+    def __init__(self, led, i2c, data_logger, event_logger, button, clock, cfg) -> None:
         # Load settings from TOML
-        self.cfg = load_settings()
+        self.cfg = cfg
 
         # Initialize the AirQuality class with button, RTC, and logger
         self.i2c = i2c
@@ -27,6 +26,12 @@ class AirQualitySensor:
         self.event_logger = event_logger
         self.button = button
         self.clock = clock
+
+        # Sync the internal clock with the hardware RTC and check battery status
+        self.clock.sync()
+        if self.clock.battery_low:
+            self.event_logger.warning(msg="RTC battery is low.")
+
         # Initialize sensors
         self.co2_sensor = SCD4X(i2c) # CO2 / T / RH: SCD4x
         self.co2_sensor.start_periodic_measurement()
@@ -48,13 +53,13 @@ class AirQualitySensor:
         self.pm100: float|None = None
 
         # Settings
-        self.shutdown_hold = get(self.cfg, "button.shutdown_hold", 2.0)
+        self.shutdown_hold = cfg.get("button.shutdown_hold", 2.0)
 
         # Initialize intervals from settings
-        self.voc_index_interval: float = get(self.cfg, "intervals.voc_index", 1.0)
-        self.sensor_interval: float = get(self.cfg, "intervals.sensor", 5.0)
-        self.print_interval: float = get(self.cfg, "intervals.print", 5.0)
-        self.log_interval: float = get(self.cfg, "intervals.log", 5.0)
+        self.voc_index_interval: float = cfg.get("sensor.voc_index_interval", 1.0)
+        self.sensor_interval: float = cfg.get("sensor.sensor_interval", 5.0)
+        self.print_interval: float = cfg.get("sensor.print_interval", 5.0)
+        self.log_interval: float = cfg.get("sensor.log_interval", 5.0)
 
         # Flags
         self._logging: bool = False
@@ -224,6 +229,7 @@ class AirQualitySensor:
                 self.event_logger.debug(msg="System clock synced with RTC.")
             except Exception as e:
                 self.event_logger.error(msg=f"Error syncing system clock: {e}")
+
             await asyncio.sleep(60*60*24)  # Sync every 24 hours
 
 

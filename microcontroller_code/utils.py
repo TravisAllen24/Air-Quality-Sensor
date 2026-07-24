@@ -43,6 +43,7 @@ def calculate_dew_point(temp_c: float|None, rh: float|None) -> float|None:
     except Exception:
         return None
 
+
 def piecewise_linear(x: float|None, points: list[tuple[float, float]]) -> float:
     """
     Interpolate x along `points`, a list of (x, y) tuples sorted by x ascending.
@@ -167,7 +168,7 @@ def power_guarded(fallback_duration=0.25, fallback_blinks=1):
 
 def rgb_color_wheel(wheel_pos):
     """Color wheel to allow for cycling through the rainbow of RGB colors."""
-    wheel_pos = wheel_pos % 255
+    wheel_pos = int(wheel_pos) % 255
 
     if wheel_pos < 85:
         return 255 - wheel_pos * 3, 0, wheel_pos * 3

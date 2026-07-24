@@ -1,5 +1,4 @@
 import asyncio
-import os
 
 from hardware.led import LED
 from hardware.feathers3neo import FeatherS3Neo
@@ -8,46 +7,36 @@ from hardware.clock import Clock
 from hardware.logger import DataLogger, EventLogger, SDSink, ConsoleSink, TCPSink
 from hardware.sd_card_manager import SDCardManager
 from air_quality_sensor import AirQualitySensor
-from aqs_settings import load_settings, get
 from network_manager import WifiManager
+from aqs_settings import load_settings
 
-def main():
-
+def main():  
     # Initialize FeatherS3Neo hardware interface
     feather = FeatherS3Neo()
-    feather.startup_message()
 
     # Load settings
     cfg = load_settings()
 
     # Initialize Objects
-    led = LED(brightness=get(cfg, "led.brightness", 0.2), matrix=feather.matrix, 
-              pixel=feather.pixel, blue_led=feather.blue_led, pixel_power=feather.pixel_power)
-    
+    led             = LED(feather.matrix, feather.pixel, feather.blue_led, feather.pixel_power, cfg)
+    wifi_manager    = WifiManager(cfg)
+    clock           = Clock(feather.i2c, feather.internal_rtc)
+    sd_manager      = SDCardManager(feather.spi, feather.cs_pin)
+    sinks           = [SDSink(cfg), 
+                       ConsoleSink(cfg), 
+                       TCPSink(wifi_manager, cfg)]
+    data_logger     = DataLogger(sinks, led, clock, cfg)
+    event_logger    = EventLogger(led, clock)
+    button          = Button(feather.button_pin)
+
+    # Indicate system is ready
+    feather.startup_message(clock.battery_low)
     led.spiral()
 
-    wifi_manager = WifiManager(ssid=os.getenv("CIRCUITPY_WIFI_SSID"), 
-                               password=os.getenv("CIRCUITPY_WIFI_PASSWORD"))
-
     try:
-        wifi_manager.connect()
-    except Exception as e:
-        print(f"Wi-Fi connection failed: {e}")
-
-    sinks = [SDSink(), ConsoleSink(), TCPSink(wifi_manager)]
-
-    sd_manager = SDCardManager()
-    data_logger = DataLogger(led = led, sinks=sinks, clock=Clock(feather.i2c, feather.internal_rtc))
-    event_logger = EventLogger(led=led, clock=Clock(feather.i2c, feather.internal_rtc))
-
-    button = Button(feather.button_pin)
-    clock = Clock(feather.i2c, feather.internal_rtc)
-
-
-    try:
-        # Initialize AirQualitySensor with LED
-        with AirQualitySensor(led, feather.i2c, data_logger, event_logger, button, clock) as air_quality:
-
+        with AirQualitySensor(led, feather.i2c, data_logger, event_logger, 
+                              button, clock, cfg) as air_quality:
+            
             try:
                 asyncio.run(air_quality.run())
 

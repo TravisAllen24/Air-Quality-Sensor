@@ -53,8 +53,3 @@ def _parse_value(value):
         return int(value)
     except ValueError:
         return value
-
-
-def get(settings, key, default=None):
-    """Get a value from settings dict with a default fallback."""
-    return settings.get(key, default)
